@@ -1,6 +1,16 @@
 # Milestone 1 — Offline iPad Scout App
 
-## Status (2026-10-03): built, desktop-tested; iPad testing pending
+## Status: ✅ complete (2026-10-04)
+
+Tested on real iPads on 2026-10-04 with no problems:
+- installed from GitHub Pages and set up with config + schedule QR codes
+- scouted the full practice list in airplane mode
+- force-quit and reboot persistence checks passed
+- the laptop webcam read the iPad's QR codes
+
+Imager testing moves to M2 (scan station).
+
+### Earlier status (2026-10-03): built, desktop-tested
 
 **Done and passing:**
 - `npm test`: 21 tests, including a real QR encode → image → jsQR decode.

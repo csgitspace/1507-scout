@@ -92,6 +92,18 @@ export function emptyValues() {
   return v;
 }
 
+/** Human-readable value, e.g. enum index 1 -> "Left of Hub". Used on the iPad, the laptop and in exports. */
+export function displayValue(f, v) {
+  switch (f.type) {
+    case 'bool': return v ? 'Yes' : 'No';
+    case 'enum': return v === null || v === undefined ? '—' : f.options[v];
+    case 'multi': return f.options.filter((_, i) => v & (1 << i)).join(', ') || 'None';
+    case 'rating': return v === null || v === undefined ? '—' : `${v} / ${f.max}`;
+    case 'text': return v || '—';
+    default: return String(v);
+  }
+}
+
 /** Fields that still need an answer before this match can be submitted. */
 export function missingRequired(values) {
   return FIELDS.filter(f =>

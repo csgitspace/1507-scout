@@ -5,9 +5,10 @@ import { h } from './dom.js';
 import { qrElement } from './qr.js';
 import { scanQR } from './scanner.js';
 import { encodeConfig, encodeSchedule } from '../shared/setup-codes.js';
-import { decodeRecord, SCOUT_ID_RE } from '../shared/codec.js';
+import { decodeRecord } from '../shared/codec.js';
 import { FIELDS } from '../shared/fields.js';
-import { STATIONS, stationLabel, matchLabel, shortMatchKey } from '../shared/schedule.js';
+import { STATIONS, stationLabel, matchLabel } from '../shared/schedule.js';
+import { parseRoster, parseScheduleText, practiceSchedule, scheduleToText } from '../shared/lead-input.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -24,27 +25,6 @@ function showResult(id, message, bad = false) {
 }
 
 // ---------- 1. Config ----------
-/** "ada, Ada L." -> {id:'ada', name:'Ada L.'}; "Priya K." -> {id:'priyak', name:'Priya K.'} */
-function parseRoster(text) {
-  const used = new Set();
-  return text.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
-    let id, name;
-    const comma = line.indexOf(',');
-    if (comma > 0 && SCOUT_ID_RE.test(line.slice(0, comma).trim())) {
-      id = line.slice(0, comma).trim();
-      name = line.slice(comma + 1).trim();
-    } else {
-      name = line;
-      // Derive the id from the name (not line order) so it stays stable if the list is reordered.
-      id = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'scout';
-    }
-    let unique = id, n = 2;
-    while (used.has(unique)) unique = `${id.slice(0, 10)}${n++}`;
-    used.add(unique);
-    return { id: unique, name };
-  });
-}
-
 $('make-config').addEventListener('click', () => {
   const out = $('config-codes');
   out.replaceChildren();
@@ -68,28 +48,15 @@ $('make-config').addEventListener('click', () => {
 
 // ---------- 2. Schedule ----------
 $('make-practice').addEventListener('click', () => {
-  const teams = [...new Set($('teams').value.split(/[\s,]+/).map(Number).filter(n => n >= 1))];
   const count = Math.min(150, Math.max(1, Number($('count').value) || 20));
-  if (teams.length < 6) { showResult('schedule-result', 'Enter at least 6 practice team numbers', true); return; }
-  const lines = [];
-  for (let i = 1; i <= count; i++) {
-    const shuffled = [...teams].sort(() => Math.random() - 0.5);
-    lines.push(`qm${i}, ${shuffled.slice(0, 6).join(', ')}`);
+  try {
+    $('schedule').value = scheduleToText(practiceSchedule($('teams').value.split(/[\s,]+/), count));
+    $('schedule').dispatchEvent(new Event('input'));
+    showResult('schedule-result', `Filled ${count} practice matches. Now press "Make schedule codes".`);
+  } catch (err) {
+    showResult('schedule-result', err.message, true);
   }
-  $('schedule').value = lines.join('\n');
-  $('schedule').dispatchEvent(new Event('input'));
-  showResult('schedule-result', `Filled ${count} practice matches. Now press "Make schedule codes".`);
 });
-
-function parseSchedule(text) {
-  return text.split('\n').map(l => l.trim()).filter(Boolean).map((line, i) => {
-    const [rawKey, ...teams] = line.split(/[\s,]+/);
-    const key = shortMatchKey(rawKey);
-    if (!key) throw new Error(`Line ${i + 1}: "${rawKey}" isn't a match key (qm12, sf3m1, f1m2)`);
-    if (teams.length !== 6) throw new Error(`Line ${i + 1}: needs 6 team numbers, found ${teams.length}`);
-    return { key, teams: teams.map(Number) };
-  });
-}
 
 let slides = [], slideIndex = 0, slideTimer = null;
 
@@ -119,7 +86,7 @@ function setAuto(on) {
 $('make-schedule').addEventListener('click', () => {
   try {
     const event = $('event').value.trim().toLowerCase();
-    const matches = parseSchedule($('schedule').value);
+    const matches = parseScheduleText($('schedule').value);
     if (!matches.length) throw new Error('Enter at least one match (or fill a practice schedule)');
     const rev = Date.now().toString(36).slice(-6);
     slides = encodeSchedule({ event, rev, matches });

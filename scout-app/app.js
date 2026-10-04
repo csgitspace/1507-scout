@@ -14,7 +14,7 @@ import { qrElement } from './qr.js';
 import { scanQR } from './scanner.js';
 import { renderField } from './form.js';
 import * as db from './db.js';
-import { FIELDS, PHASES, emptyValues, missingRequired } from '../shared/fields.js';
+import { FIELDS, PHASES, emptyValues, missingRequired, displayValue } from '../shared/fields.js';
 import { encodeRecord, recordKey } from '../shared/codec.js';
 import { decodeConfig, decodeSchedulePart, addSchedulePart, missingParts, completeSchedule } from '../shared/setup-codes.js';
 import { teamFor, matchLabel, stationLabel, compareMatchKeys, parseMatchKey } from '../shared/schedule.js';
@@ -66,17 +66,6 @@ const isInstalled = () => navigator.standalone === true || matchMedia('(display-
 
 function fmtTime(ts) {
   return new Date(ts * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
-}
-
-function displayValue(f, v) {
-  switch (f.type) {
-    case 'bool': return v ? 'Yes' : 'No';
-    case 'enum': return v === null ? '—' : f.options[v];
-    case 'multi': return f.options.filter((_, i) => v & (1 << i)).join(', ') || 'None';
-    case 'rating': return v === null ? '—' : `${v} / ${f.max}`;
-    case 'text': return v || '—';
-    default: return String(v);
-  }
 }
 
 // ---------- Shared pieces of UI ----------

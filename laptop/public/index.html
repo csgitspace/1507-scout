@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scan Station · Warlocks 1507</title>
+  <link rel="icon" href="/scout-app/icons/icon-192.png">
+  <link rel="stylesheet" href="/scout-app/styles.css">
+  <link rel="stylesheet" href="station.css">
+  <script src="/scout-app/vendor/qrcode.js"></script>
+  <script src="/scout-app/vendor/jsQR.js" defer></script>
+  <script type="module" src="station.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-side"><span id="event-chip" class="event-chip">No event</span></div>
+    <div class="brand"><span class="bolt">⚡</span>SCAN STATION<span class="bolt">⚡</span></div>
+    <div class="topbar-side right"><span id="clock" class="fine"></span></div>
+  </header>
+  <nav class="station-tabs">
+    <button data-tab="scan" class="on">Scan</button>
+    <button data-tab="coverage">Coverage <span id="missing-badge" class="badge-count" hidden></span></button>
+    <button data-tab="records">Records</button>
+    <button data-tab="setup">Event setup</button>
+  </nav>
+
+  <main class="station">
+    <!-- SCAN -->
+    <section id="tab-scan" class="tab-panel">
+      <div id="result" class="result idle">
+        <div class="result-big">Ready to scan</div>
+        <div class="result-sub">Scan an iPad's QR code with the imager, or use the webcam</div>
+      </div>
+      <div class="scan-controls">
+        <label class="scan-input-wrap" id="scan-wrap">
+          <span class="focus-dot"></span>
+          <input id="scan-input" autocomplete="off" spellcheck="false" placeholder="Scanner input — keep this box selected">
+        </label>
+        <button id="webcam-btn" class="btn primary">📷 Use webcam</button>
+      </div>
+      <div class="two-col">
+        <div class="panel"><h3>Recent scans</h3><div id="recent"></div></div>
+        <div class="panel"><h3>Missing so far</h3><div id="missing-mini"></div><p class="fine" id="counts"></p></div>
+      </div>
+    </section>
+
+    <!-- COVERAGE -->
+    <section id="tab-coverage" class="tab-panel" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Which scans are missing?</h2>
+          <label class="inline">Played through
+            <select id="played"></select>
+          </label>
+        </div>
+        <p id="cov-summary" class="cov-summary"></p>
+        <div class="legend">
+          <span class="cell ok">✓ scanned</span><span class="cell missing">missing</span>
+          <span class="cell multi">2+ scouts</span><span class="cell mismatch">team mismatch</span>
+        </div>
+        <div class="table-wrap"><table id="cov-grid" class="grid"></table></div>
+        <div id="cov-extras"></div>
+      </div>
+    </section>
+
+    <!-- RECORDS -->
+    <section id="tab-records" class="tab-panel" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Records <span id="records-count" class="fine"></span></h2>
+          <input id="records-filter" class="field-input narrow" placeholder="Filter by team #">
+          <a class="btn small" href="/api/export.csv">⬇ Export CSV</a>
+        </div>
+        <div class="table-wrap"><table id="records-table" class="data"></table></div>
+      </div>
+      <div class="panel">
+        <h3>Scan log (latest 40, including rejected)</h3>
+        <div class="table-wrap"><table id="scan-log" class="data"></table></div>
+      </div>
+    </section>
+
+    <!-- SETUP -->
+    <section id="tab-setup" class="tab-panel" hidden>
+      <div class="panel">
+        <h2>1 · Event</h2>
+        <form id="settings-form" class="form-grid">
+          <div>
+            <label for="s-event">Event code (TBA key)</label>
+            <input id="s-event" class="field-input" placeholder="e.g. 2026nyro" autocapitalize="off" spellcheck="false">
+            <label for="s-pin">Lead PIN for iPads (4–8 digits)</label>
+            <input id="s-pin" class="field-input" inputmode="numeric">
+            <label for="s-tba">TBA read key <span id="tba-status" class="fine"></span></label>
+            <input id="s-tba" class="field-input" type="password" autocomplete="off" placeholder="leave blank to keep the saved key">
+          </div>
+          <div>
+            <label for="s-roster">Scout roster — one per line: <code>id, Name</code> (or just a name)</label>
+            <textarea id="s-roster" class="field-input" rows="9"></textarea>
+          </div>
+          <div class="actions"><button class="btn primary" type="submit">Save event settings</button><span id="settings-msg"></span></div>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>2 · Schedule <span id="sched-status" class="fine"></span></h2>
+        <div class="actions">
+          <button id="tba-import" class="btn primary">Import from The Blue Alliance</button>
+          <span id="tba-msg"></span>
+        </div>
+        <details>
+          <summary>…or paste a schedule / make a practice schedule</summary>
+          <p class="fine">One line per match: <code>match, red1, red2, red3, blue1, blue2, blue3</code> (e.g. <code>qm12</code>, <code>sf3m1</code>, <code>f1m2</code>).</p>
+          <textarea id="sched-text" class="field-input" rows="6"></textarea>
+          <div class="actions"><button id="sched-save" class="btn">Save pasted schedule</button></div>
+          <div class="form-grid">
+            <div><label for="p-teams">Practice teams</label><input id="p-teams" class="field-input" placeholder="1507 254 1114 118 2056 33 67 148"></div>
+            <div><label for="p-count">Practice matches</label><input id="p-count" class="field-input" value="20" inputmode="numeric"></div>
+          </div>
+          <div class="actions"><button id="sched-practice" class="btn">Make practice schedule</button></div>
+        </details>
+        <p id="sched-msg"></p>
+      </div>
+
+      <div class="panel">
+        <h2>3 · iPad codes</h2>
+        <p class="fine">Each iPad scans the config code for its station once, then the schedule (Home → Scan schedule).
+          Show the schedule again whenever it changes, e.g. when playoffs are set.</p>
+        <div class="actions">
+          <button id="show-config" class="btn primary">Show config codes</button>
+          <button id="show-schedule" class="btn primary">Show schedule codes</button>
+          <button class="btn" onclick="window.print()">Print</button>
+        </div>
+        <div id="codes"></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -11,20 +11,37 @@ the rules it must not break, and the decisions made so far.
 |---|---|---|
 | [scout-app/](scout-app/) | iPad web app (offline, QR output) + lead tools | Milestone 1 ✅ |
 | [shared/](shared/) | Field list + record/QR format, used by every app | ✅ |
-| `laptop/` | Scan station: QR intake, database, sync | Milestone 2 |
+| [laptop/](laptop/) | Scan station: QR intake, SQLite database, coverage, iPad codes | Milestone 2 ✅ (sync: M3) |
 | `dashboard/` | Apps Script mentor dashboard | Milestone 3 |
 | [docs/](docs/) | Specs, plans, legacy audit | |
 | [legacy/](legacy/) | v3 app, reference only | |
 
 ## Commands
 
-Needs [Node.js](https://nodejs.org) 22 or newer. Nothing to install: there are no dependencies.
+Needs [Node.js](https://nodejs.org) 24 or newer. Nothing to install: there are
+no dependencies, and the scan station uses Node's built-in SQLite.
 
 ```
-npm test        # record/QR format tests (includes a real QR encode -> decode)
+npm run station # the scan station: opens http://localhost:1507 (data in data/, gitignored)
+npm test        # all tests (record format, real QR encode -> decode, scan station)
 npm run serve   # http://localhost:8080 — scout app + lead tools on this computer
 npm run icons   # regenerate the Home Screen icons
 ```
+
+## At an event (scan station)
+
+1. `npm run station`. On first run it opens **Event setup**: enter the event
+   code, lead PIN, roster and your TBA read key, then **Import from The Blue
+   Alliance** (needs the tethered phone) or paste a schedule.
+2. **Show config codes** / **Show schedule codes** for the iPads to scan.
+3. On the **Scan** tab, scan each iPad's QR code with the imager (the box must
+   show a green dot) or **Use webcam**. Every scan gives a green or red answer
+   and a beep.
+4. Check **Coverage** between matches. It lists every station and match that
+   hasn't been scanned.
+
+The database backs itself up to `data/backups/` every 10 minutes. If the
+laptop dies, the iPads still have every record: Lead menu → Show all QR codes.
 
 ## Changing what scouts record
 

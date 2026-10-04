@@ -6,10 +6,11 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "station": "node laptop/server.js",
     "serve": "node tools/serve.js",
     "icons": "node tools/make-icons.js"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }

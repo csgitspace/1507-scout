@@ -5,3 +5,5 @@ node_modules/
 files/
 files.zip
 .e2e-profile/
+# Scan station database, backups and the TBA key live here — never commit
+data/
