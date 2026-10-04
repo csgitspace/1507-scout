@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import { openDb } from './db.js';
 import { createHandler } from './api.js';
+import { createSync } from './sync.js';
 
 const PORT = Number(process.env.PORT) || 1507;
 const DATA = process.env.SCOUT_DATA || fileURLToPath(new URL('../data/', import.meta.url));
@@ -42,7 +43,16 @@ function backup() {
 }
 setInterval(backup, 10 * 60 * 1000);
 
-const server = createServer(createHandler({ store }));
+// ---- Dashboard sync: every 3 minutes (mentors' freshness bar is 10) ----
+const SYNC_MINUTES = Number(process.env.SYNC_MINUTES) || 3;
+const sync = createSync({ store, dashboardFile: join(DATA, 'dashboard.json') });
+const runSync = () => sync.syncOnce().then(s => {
+  if (s.lastError && s.configured) console.log(`Sync failed: ${s.lastError} (${s.pending} waiting)`);
+});
+setTimeout(runSync, 15 * 1000);
+setInterval(runSync, SYNC_MINUTES * 60 * 1000);
+
+const server = createServer(createHandler({ store, sync }));
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`Port ${PORT} is busy — is the scan station already running? Close it or set PORT.`);

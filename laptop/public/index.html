@@ -40,7 +40,17 @@
       </div>
       <div class="two-col">
         <div class="panel"><h3>Recent scans</h3><div id="recent"></div></div>
-        <div class="panel"><h3>Missing so far</h3><div id="missing-mini"></div><p class="fine" id="counts"></p></div>
+        <div>
+          <div class="panel"><h3>Missing so far</h3><div id="missing-mini"></div><p class="fine" id="counts"></p></div>
+          <div class="panel">
+            <h3>Dashboard sync</h3>
+            <div id="sync-line" class="sync-line">—</div>
+            <div class="actions">
+              <button id="sync-now" class="btn small">⟳ Sync now</button>
+              <a id="dash-link" class="btn small" target="_blank" rel="noopener" hidden>Open mentor dashboard ↗</a>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -130,6 +140,29 @@
           <button class="btn" onclick="window.print()">Print</button>
         </div>
         <div id="codes"></div>
+      </div>
+
+      <div class="panel">
+        <h2>4 · Dashboard sync <span id="sync-source" class="fine"></span></h2>
+        <p class="fine">On the laptop that ran <code>npm run dashboard:push</code> this is automatic. On another laptop,
+          paste the sync endpoint URL and token from <code>data/dashboard.json</code>. Leave blank to use that file.</p>
+        <div class="form-grid">
+          <div>
+            <label for="sync-url">Sync endpoint URL</label>
+            <input id="sync-url" class="field-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+            <label for="dash-url">Mentor dashboard URL (optional, for the link)</label>
+            <input id="dash-url" class="field-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+          </div>
+          <div>
+            <label for="sync-token">Sync token</label>
+            <input id="sync-token" class="field-input" type="password" autocomplete="off" placeholder="leave blank to keep the saved token">
+          </div>
+          <div class="actions">
+            <button id="sync-save" class="btn">Save sync settings</button>
+            <button id="sync-test" class="btn primary">Sync now</button>
+            <span id="sync-msg"></span>
+          </div>
+        </div>
       </div>
     </section>
   </main>

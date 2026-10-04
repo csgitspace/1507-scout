@@ -12,6 +12,9 @@
 //   POST /api/schedule/tba    import schedule + teams from The Blue Alliance
 //   GET  /api/codes           iPad config codes (one per station) + schedule parts
 //   GET  /api/export.csv      current records as a spreadsheet
+//   GET  /api/sync            dashboard sync status
+//   POST /api/sync/now        push to the dashboard right now
+//   POST /api/sync/config     { url, token, dashboardUrl } — blank = use data/dashboard.json
 // ==============================================================================
 
 import { readFile } from 'node:fs/promises';
@@ -39,7 +42,7 @@ class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
-export function createHandler({ store, fetchImpl = fetch }) {
+export function createHandler({ store, sync = null, fetchImpl = fetch }) {
   const event = () => store.getSetting('event');
   const scheduleMatches = (ev) => orderedKeys(store.schedule(ev)).map(k => ({ key: k, teams: store.schedule(ev)[k] }));
 
@@ -139,6 +142,22 @@ export function createHandler({ store, fetchImpl = fetch }) {
       }
       setSchedule(ev, data.matches);
       return { ok: true, matches: data.matches.length, teams: data.teams.length, name: data.name };
+    },
+
+    'GET /api/sync': () => (sync ? sync.getStatus() : { configured: false, lastError: 'Sync not available' }),
+
+    'POST /api/sync/now': () => (sync ? sync.syncOnce() : { configured: false, lastError: 'Sync not available' }),
+
+    'POST /api/sync/config': (body) => {
+      for (const [key, value] of [['syncUrl', body.url], ['syncToken', body.token], ['dashboardUrl', body.dashboardUrl]]) {
+        if (value === undefined) continue;
+        const v = String(value || '').trim();
+        if (key !== 'syncToken' && v && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(v)) {
+          throw new HttpError(400, 'That should be an Apps Script web app URL ending in /exec');
+        }
+        store.setSetting(key, v || null);
+      }
+      return sync ? sync.getStatus() : {};
     },
 
     'GET /api/codes': () => {

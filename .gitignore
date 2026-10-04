@@ -5,5 +5,7 @@ node_modules/
 files/
 files.zip
 .e2e-profile/
-# Scan station database, backups and the TBA key live here — never commit
+# Scan station database, backups, the TBA key and dashboard secrets live here — never commit
 data/
+# Assembled Apps Script projects (contain the sync token)
+dashboard/build/

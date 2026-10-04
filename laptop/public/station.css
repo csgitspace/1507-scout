@@ -1,4 +1,5 @@
 /* Scan station extras on top of scout-app/styles.css (same navy + gold theme). */
+[hidden] { display: none !important; }
 main.station { max-width: 1200px; }
 .event-chip { font-family: ui-monospace, Menlo, monospace; color: var(--gold); font-weight: 700; }
 
@@ -60,6 +61,11 @@ main.station { max-width: 1200px; }
 .recent-row .why { color: var(--muted); font-size: 0.85rem; grid-column: 2 / 4; }
 .mini-missing { display: flex; flex-wrap: wrap; gap: 6px; }
 .mini-missing span { background: #3d0a10; border: 1px solid var(--bad); border-radius: 8px; padding: 4px 8px; font-weight: 700; }
+
+.sync-line { font-weight: 700; }
+.sync-line.ok { color: var(--good); }
+.sync-line.bad { color: var(--bad); }
+.sync-line .fine { display: block; font-weight: 400; margin-top: 4px; }
 
 /* ---------- Coverage grid ---------- */
 .cov-summary { font-size: 1.15rem; font-weight: 700; }

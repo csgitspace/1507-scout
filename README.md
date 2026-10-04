@@ -12,7 +12,7 @@ the rules it must not break, and the decisions made so far.
 | [scout-app/](scout-app/) | iPad web app (offline, QR output) + lead tools | Milestone 1 ✅ |
 | [shared/](shared/) | Field list + record/QR format, used by every app | ✅ |
 | [laptop/](laptop/) | Scan station: QR intake, SQLite database, coverage, iPad codes | Milestone 2 ✅ (sync: M3) |
-| `dashboard/` | Apps Script mentor dashboard | Milestone 3 |
+| [dashboard/](dashboard/) | Apps Script sync endpoint + mentor pick list | Milestone 3 (built; Google deploy pending) |
 | [docs/](docs/) | Specs, plans, legacy audit | |
 | [legacy/](legacy/) | v3 app, reference only | |
 
@@ -46,6 +46,23 @@ npm's helper script. Type `npm.cmd` instead of `npm` (e.g. `npm.cmd run station`
 
 The database backs itself up to `data/backups/` every 10 minutes. If the
 laptop dies, the iPads still have every record: Lead menu → Show all QR codes.
+
+## Mentor dashboard (one-time setup, with the team Google account)
+
+1. Turn on the Apps Script API: <https://script.google.com/home/usersettings>.
+2. `npm.cmd install -g @google/clasp`, then `clasp.cmd login` (sign in as the team account).
+3. `npm.cmd run dashboard:create` creates the scouting Sheet and both Apps Script projects.
+4. `npm.cmd run dashboard:push` uploads and deploys them. It prints the **mentor dashboard URL**.
+   Run it again after any change in `dashboard/` or `shared/fields.js`; the URLs stay the same.
+5. Share the Sheet with each mentor as **Editor**. Sharing the Sheet is the
+   allow-list: only people it's shared with can open the dashboard. Send them the dashboard URL.
+   The first time, Google asks each mentor to authorize it (and may say "unverified app").
+   Click Advanced → Go to Warlocks 1507 Pick List.
+
+The scan station picks up the sync URL and token from `data/dashboard.json`
+automatically and syncs every 3 minutes over the tethered phone. Its Scan tab
+shows "Synced N min ago" or why it's failing. On a different laptop, paste the
+URL and token on Event setup → Dashboard sync.
 
 ## Changing what scouts record
 

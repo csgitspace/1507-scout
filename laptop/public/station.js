@@ -100,6 +100,7 @@ async function doScan(text, source) {
     const r = await api('/api/scan', { text, source });
     const d = showResult(r);
     refreshScanSide();
+    refreshSync();
     return { r, d };
   } catch (err) {
     showResult({ accepted: false, reason: `Scan station error: ${err.message}` });
@@ -305,10 +306,58 @@ $('show-schedule').addEventListener('click', async () => {
   } catch (err) { toast(err.message, 'bad'); }
 });
 
+// ---------- Dashboard sync ----------
+const ago = (ms) => {
+  const m = Math.floor((Date.now() - ms) / 60000);
+  return m < 1 ? 'just now' : `${m} min ago`;
+};
+
+function renderSync(s) {
+  const line = $('sync-line');
+  let main, cls;
+  if (!s.configured) { main = 'Not set up'; cls = 'bad'; }
+  else if (s.running) { main = 'Syncing…'; cls = ''; }
+  else if (s.lastError) { main = `⚠ ${s.lastError}`; cls = 'bad'; }
+  else if (s.lastSuccess) { main = `✓ Synced ${ago(s.lastSuccess)}`; cls = Date.now() - s.lastSuccess > 10 * 60000 ? 'bad' : 'ok'; }
+  else { main = 'Waiting for first sync'; cls = ''; }
+  const detail = [
+    `${s.pending} record${s.pending === 1 ? '' : 's'} waiting`,
+    s.lastSuccess && s.lastError ? `last good sync ${ago(s.lastSuccess)}` : null,
+    !s.configured ? 'Run  npm run dashboard:push  on this laptop, or enter the sync URL + token on Event setup' : null,
+  ].filter(Boolean).join(' · ');
+  line.className = `sync-line ${cls}`;
+  line.replaceChildren(main, h('span', { class: 'fine' }, detail));
+  const link = $('dash-link');
+  link.hidden = !s.dashboardUrl;
+  if (s.dashboardUrl) link.href = s.dashboardUrl;
+  $('sync-source').textContent = s.configured ? `— using ${s.source}` : '— not set up';
+}
+
+async function refreshSync() { renderSync(await api('/api/sync')); }
+
+async function syncNow(msgId) {
+  renderSync({ ...(await api('/api/sync')), running: true });
+  const s = await api('/api/sync/now', {});
+  renderSync(s);
+  if (msgId) message(msgId, s.lastError ? s.lastError : `Synced ✓ (${s.lastAdded} new rows)`, !s.lastError);
+}
+$('sync-now').addEventListener('click', () => syncNow().catch(err => toast(err.message, 'bad')));
+$('sync-test').addEventListener('click', () => syncNow('sync-msg').catch(err => message('sync-msg', err.message, false)));
+$('sync-save').addEventListener('click', async () => {
+  try {
+    const body = { url: $('sync-url').value, dashboardUrl: $('dash-url').value };
+    if ($('sync-token').value.trim()) body.token = $('sync-token').value;
+    renderSync(await api('/api/sync/config', body));
+    $('sync-token').value = '';
+    message('sync-msg', 'Saved');
+  } catch (err) { message('sync-msg', err.message, false); }
+});
+
 // ---------- Refresh loop ----------
 async function refresh() {
   try {
     await loadState();
+    refreshSync();
     if (tab === 'scan') await refreshScanSide();
     else if (tab === 'coverage') await refreshCoverage();
     else if (tab === 'records') await refreshRecords();

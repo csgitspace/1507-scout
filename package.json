@@ -7,6 +7,9 @@
   "scripts": {
     "test": "node --test",
     "station": "node laptop/server.js",
+    "dashboard:create": "node tools/dashboard.js create",
+    "dashboard:build": "node tools/dashboard.js build",
+    "dashboard:push": "node tools/dashboard.js push",
     "serve": "node tools/serve.js",
     "icons": "node tools/make-icons.js"
   },

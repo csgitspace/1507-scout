@@ -58,6 +58,12 @@ CREATE VIEW IF NOT EXISTS current_records AS
     WHERE n.event = r.event AND n.rkey = r.rkey
       AND (n.ts > r.ts OR (n.ts = r.ts AND n.id > r.id)));
 
+-- Which records the dashboard has confirmed it has (records itself stays append-only).
+CREATE TABLE IF NOT EXISTS sync_log (
+  record_id INTEGER PRIMARY KEY REFERENCES records(id),
+  synced_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 CREATE TABLE IF NOT EXISTS schedule (
@@ -109,6 +115,11 @@ export function openDb(file = ':memory:') {
     deleteTeams: db.prepare('DELETE FROM teams WHERE event = ?'),
     insertTeam: db.prepare('INSERT INTO teams (event, team, name) VALUES (?, ?, ?)'),
     teams: db.prepare('SELECT team, name FROM teams WHERE event = ? ORDER BY team'),
+    unsynced: db.prepare(`SELECT r.* FROM records r LEFT JOIN sync_log s ON s.record_id = r.id
+                          WHERE s.record_id IS NULL AND r.event = ? ORDER BY r.id LIMIT ?`),
+    countUnsynced: db.prepare(`SELECT COUNT(*) AS n FROM records r LEFT JOIN sync_log s ON s.record_id = r.id
+                               WHERE s.record_id IS NULL AND r.event = ?`),
+    markSynced: db.prepare('INSERT OR IGNORE INTO sync_log (record_id, synced_at) VALUES (?, ?)'),
   };
 
   const transaction = (fn) => {
@@ -163,6 +174,11 @@ export function openDb(file = ':memory:') {
       });
     },
     teams(event) { return q.teams.all(event); },
+
+    /** Every record version the dashboard hasn't confirmed yet, oldest first. */
+    unsyncedRecords(event, limit = 300) { return q.unsynced.all(event, limit).map(rowToRecord); },
+    countUnsynced(event) { return q.countUnsynced.get(event).n; },
+    markSynced(ids, at) { transaction(() => { for (const id of ids) q.markSynced.run(id, at); }); },
 
     transaction,
     /** Consistent copy of the whole database to another file (safe while running). */
