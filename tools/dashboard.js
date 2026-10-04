@@ -2,7 +2,7 @@
 // Builds and deploys the two Apps Script projects with clasp.
 //
 //   npm run dashboard:create   one time: creates the scouting Sheet + both projects
-//   npm run dashboard:build    assembles dashboard/build/<project>/ (no Google needed)
+//   npm run dashboard:build    assembles dashboard/<project>/build/ (no Google needed)
 //   npm run dashboard:push     build + upload + deploy (keeps the same web app URLs)
 //
 // Needs clasp installed and logged in as the TEAM account:
@@ -14,7 +14,7 @@
 // ==============================================================================
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
@@ -23,7 +23,9 @@ import { FIELDS, SCHEMA_VERSION } from '../shared/fields.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DASH = join(ROOT, 'dashboard');
-const BUILD = join(DASH, 'build');
+// Each project builds into its OWN build/ folder: clasp refuses a rootDir outside
+// the folder holding .clasp.json.
+const buildDir = (name) => join(DASH, name, 'build');
 const DATA = process.env.SCOUT_DATA || join(ROOT, 'data');
 const STATE_FILE = join(DATA, 'dashboard.json');
 const PROJECTS = {
@@ -56,13 +58,20 @@ export function fieldsJs() {
     `var SCHEMA_VERSION = ${SCHEMA_VERSION};\nvar FIELDS = ${JSON.stringify(FIELDS, null, 2)};\n`;
 }
 
+/** Copies the plain files (not folders, not .clasp.json) of `from` into `to`. */
+function copyFiles(from, to) {
+  for (const entry of readdirSync(from, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name !== '.clasp.json') copyFileSync(join(from, entry.name), join(to, entry.name));
+  }
+}
+
 export function build(state = readState()) {
-  rmSync(BUILD, { recursive: true, force: true });
   for (const name of Object.keys(PROJECTS)) {
-    const out = join(BUILD, name);
+    const out = buildDir(name);
+    rmSync(out, { recursive: true, force: true });
     mkdirSync(out, { recursive: true });
-    cpSync(join(DASH, 'common'), out, { recursive: true });
-    cpSync(join(DASH, name), out, { recursive: true, filter: (src) => !src.endsWith('.clasp.json') });
+    copyFiles(join(DASH, 'common'), out);
+    copyFiles(join(DASH, name), out);
     writeFileSync(join(out, 'Fields.js'), fieldsJs());
     if (name === 'sync-endpoint') {
       if (!state.sheetId || !state.token) throw new Error('No Sheet yet — run  npm run dashboard:create  first.');
@@ -70,26 +79,32 @@ export function build(state = readState()) {
         `var SHEET_ID = ${JSON.stringify(state.sheetId)};\nvar SYNC_TOKEN = ${JSON.stringify(state.token)};\n`);
     }
   }
-  console.log(`Built dashboard/build/ (fields schema v${SCHEMA_VERSION})`);
+  console.log(`Built dashboard/web/build and dashboard/sync-endpoint/build (fields schema v${SCHEMA_VERSION})`);
 }
 
+/** Safe to re-run: projects already created are skipped, progress is saved after each one. */
 function create() {
   const state = readState();
-  if (state.sheetId) throw new Error(`Already created (Sheet ${state.sheetId}). Delete data/dashboard.json to start over.`);
+  state.token ||= randomBytes(24).toString('base64url');
   for (const [name, p] of Object.entries(PROJECTS)) {
     const dir = join(DASH, name);
     const claspFile = join(dir, '.clasp.json');
+    if (state[name] && state[name].scriptId && existsSync(claspFile)) {
+      console.log(`${p.title}: already created, skipping.`);
+      continue;
+    }
     if (existsSync(claspFile)) rmSync(claspFile);
+    mkdirSync(buildDir(name), { recursive: true });
     console.log(`Creating ${p.title}…`);
-    console.log(clasp(['create-script', '--type', p.type, '--title', `"${p.title}"`, '--rootDir', `../build/${name}`], dir));
+    console.log(clasp(['create-script', '--type', p.type, '--title', `"${p.title}"`, '--rootDir', 'build'], dir));
     const cfg = JSON.parse(readFileSync(claspFile, 'utf8'));
     state[name] = { scriptId: cfg.scriptId };
     if (name === 'web') {
       state.sheetId = (Array.isArray(cfg.parentId) ? cfg.parentId[0] : cfg.parentId) || null;
       if (!state.sheetId) throw new Error(`clasp didn't report the new Sheet's ID. .clasp.json was:\n${JSON.stringify(cfg)}`);
     }
+    writeState(state);
   }
-  state.token = randomBytes(24).toString('base64url');
   writeState(state);
   console.log(`\nSheet: https://docs.google.com/spreadsheets/d/${state.sheetId}/edit`);
   console.log('Saved IDs and the sync token to data/dashboard.json (never commit it).');

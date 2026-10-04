@@ -8,4 +8,4 @@ files.zip
 # Scan station database, backups, the TBA key and dashboard secrets live here — never commit
 data/
 # Assembled Apps Script projects (contain the sync token)
-dashboard/build/
+dashboard/*/build/
