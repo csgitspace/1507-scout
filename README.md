@@ -28,6 +28,10 @@ npm run serve   # http://localhost:8080 — scout app + lead tools on this compu
 npm run icons   # regenerate the Home Screen icons
 ```
 
+**Windows: "running scripts is disabled on this system"?** PowerShell is blocking
+npm's helper script. Type `npm.cmd` instead of `npm` (e.g. `npm.cmd run station`), or run
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once (school-managed laptops may not allow it).
+
 ## At an event (scan station)
 
 1. `npm run station`. On first run it opens **Event setup**: enter the event

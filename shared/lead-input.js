@@ -45,9 +45,11 @@ export function parseScheduleText(text) {
     const [rawKey, ...teams] = line.split(/[\s,]+/).filter(Boolean);
     const key = shortMatchKey(rawKey);
     if (!key) throw new Error(`Line ${i + 1}: "${rawKey}" isn't a match key (qm12, sf3m1, f1m2)`);
-    if (teams.length !== 6 || teams.some(t => !/^\d{1,5}$/.test(t))) {
-      throw new Error(`Line ${i + 1}: needs 6 team numbers, found "${teams.join(' ')}"`);
+    if (teams.length !== 6) {
+      throw new Error(`Line ${i + 1}: needs 6 team numbers, found ${teams.length} ("${teams.join(' ')}")`);
     }
+    const bad = teams.find(t => !/^\d{1,5}$/.test(t) || Number(t) < 1);
+    if (bad) throw new Error(`Line ${i + 1}: "${bad}" isn't a valid team number (1–5 digits) — typo?`);
     return { key, teams: teams.map(Number) };
   });
 }

@@ -1,6 +1,15 @@
 # Milestone 2 — Scan Station (laptop core app)
 
-## Status (2026-10-04): built, desktop-tested; hardware testing pending
+## Status: ✅ complete (2026-10-04)
+
+Tested on the real laptop with iPads:
+- iPad codes scanned by webcam
+- the real TBA schedule import worked with the team's key
+- records saved correctly across a range of scenarios
+
+Imager selection is still open (see the note on emoji/accented notes below).
+
+### Earlier status (2026-10-04): built, desktop-tested
 
 **Done and passing:**
 - `npm test`: 34 tests, 13 of them new for the station:

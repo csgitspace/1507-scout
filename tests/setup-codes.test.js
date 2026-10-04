@@ -8,6 +8,7 @@ import {
 import {
   parseMatchKey, shortMatchKey, compareMatchKeys, matchLabel, teamFor, orderedKeys,
 } from '../shared/schedule.js';
+import { parseScheduleText } from '../shared/lead-input.js';
 
 const roster = [{ id: 's01', name: 'Ada L.' }, { id: 's02', name: "Sam O'Brien" }];
 
@@ -73,6 +74,12 @@ test('a part from a newer schedule revision starts a fresh collection', () => {
   c = addSchedulePart(c, decodeSchedulePart(fresh[1]).part);
   assert.equal(c.rev, 'b2');
   assert.deepEqual(Object.keys(c.parts), ['2']);
+});
+
+test('schedule text errors name the actual problem', () => {
+  assert.throws(() => parseScheduleText('qm1, 1507, 204, 340, 3672, 102221, 1498'), /"102221" isn't a valid team number/);
+  assert.throws(() => parseScheduleText('qm1, 1507, 204, 340'), /needs 6 team numbers, found 3/);
+  assert.equal(parseScheduleText('qm1, 1507, 204, 340, 3672, 10222, 1498')[0].teams[4], 10222);
 });
 
 test('match keys: playoffs need a set, quals must not have one', () => {
