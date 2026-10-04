@@ -1,0 +1,15 @@
+{
+  "name": "warlocks-1507-scout",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Team 1507 Warlocks offline scouting system",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node tools/serve.js",
+    "icons": "node tools/make-icons.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

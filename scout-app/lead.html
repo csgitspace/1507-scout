@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scouting Lead Tools</title>
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    main { max-width: 1000px; }
+    section.panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 18px; }
+    section.panel h2 { color: var(--gold); margin-top: 0; }
+    label { display: block; font-weight: 700; color: var(--gold); margin: 12px 0 4px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, textarea { width: 100%; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--text); font: inherit; }
+    textarea { font-family: ui-monospace, Menlo, monospace; font-size: 0.9rem; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 16px; }
+    .code-card { background: #fff; color: #000; border-radius: 12px; padding: 12px; text-align: center; break-inside: avoid; }
+    .code-card h3 { margin: 4px 0 8px; }
+    .code-card .sub { font-size: 0.85rem; color: #333; }
+    .slideshow { text-align: center; margin-top: 16px; }
+    .slideshow .qr { width: min(80vw, 70vh, 520px); }
+    .slide-label { font-size: 1.4rem; font-weight: 800; margin: 10px 0; }
+    .result { margin-top: 14px; }
+    .result.bad { color: var(--bad); font-weight: 700; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+    @media print {
+      body { background: #fff; }
+      .topbar, .no-print, section.panel > *:not(.codes) { display: none !important; }
+      section.panel { border: none; padding: 0; background: #fff; }
+      .codes { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+  <script src="version.js"></script>
+  <script src="vendor/qrcode.js"></script>
+  <script src="vendor/jsQR.js" defer></script>
+  <script type="module" src="lead.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-side"></div>
+    <div class="brand"><span class="bolt">⚡</span>LEAD TOOLS<span class="bolt">⚡</span></div>
+    <div class="topbar-side right"></div>
+  </header>
+  <main>
+    <p class="lead no-print">Make the QR codes that set up scout iPads, until the scan-station laptop app does this (Milestone 2).
+      Codes are made in this browser; nothing is sent anywhere.</p>
+
+    <section class="panel" id="config-panel">
+      <h2>1 · iPad config codes</h2>
+      <p class="fine no-print">Each iPad scans the code for its station once. The roster lets scouts pick their own name at shift change.</p>
+      <div class="grid2">
+        <div>
+          <label for="event">Event code (TBA key)</label>
+          <input id="event" placeholder="e.g. 2026nyro" autocapitalize="off" spellcheck="false">
+          <label for="pin">Lead PIN (4–8 digits)</label>
+          <input id="pin" inputmode="numeric" placeholder="e.g. 1507">
+        </div>
+        <div>
+          <label for="roster">Scout roster — one per line: <code>id, Name</code> (or just a name)</label>
+          <textarea id="roster" rows="7" placeholder="ada, Ada L.&#10;sam, Sam O'Brien&#10;Priya K."></textarea>
+        </div>
+      </div>
+      <div class="actions no-print">
+        <button class="btn primary" id="make-config">Make config codes</button>
+        <button class="btn" onclick="window.print()">Print</button>
+      </div>
+      <div class="result" id="config-result"></div>
+      <div class="codes" id="config-codes"></div>
+    </section>
+
+    <section class="panel" id="schedule-panel">
+      <h2>2 · Schedule codes</h2>
+      <p class="fine">One line per match: <code>match, red1, red2, red3, blue1, blue2, blue3</code>.
+        Match keys: <code>qm12</code>, playoffs <code>sf3m1</code>, finals <code>f1m2</code>.
+        Hold the codes up to each iPad's camera (Home → Scan schedule); parts can be scanned in any order.</p>
+      <textarea id="schedule" rows="8" placeholder="qm1, 1507, 254, 1114, 118, 2056, 33"></textarea>
+      <div class="grid2">
+        <div>
+          <label for="teams">Practice teams (for a fake schedule)</label>
+          <input id="teams" placeholder="1507, 254, 1114, ...">
+        </div>
+        <div>
+          <label for="count">Practice matches</label>
+          <input id="count" inputmode="numeric" value="20">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="make-practice">Fill practice schedule</button>
+        <button class="btn primary" id="make-schedule">Make schedule codes</button>
+      </div>
+      <div class="result" id="schedule-result"></div>
+      <div class="slideshow" id="schedule-codes"></div>
+    </section>
+
+    <section class="panel" id="check-panel">
+      <h2>3 · Check a scout's QR code</h2>
+      <p class="fine">Scan a record from an iPad with this computer's webcam (or paste its text) to confirm it decodes.</p>
+      <div class="actions">
+        <button class="btn primary" id="scan-record">Scan with webcam</button>
+      </div>
+      <label for="record-text">…or paste code text</label>
+      <textarea id="record-text" rows="3"></textarea>
+      <div class="actions"><button class="btn" id="check-record">Check</button></div>
+      <div class="result" id="record-result"></div>
+    </section>
+  </main>
+</body>
+</html>

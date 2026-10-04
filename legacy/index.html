@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    :root { --navy:#00004d; --gold:#FFD700; --bg:#0a0a1a; --text:#e0e0e0; --card:#14142b; --danger:#cc0000; --muted:#99a; }
+    body { font-family:'Segoe UI',sans-serif; background:var(--bg); color:var(--text); margin:0; padding:0; }
+
+    #global-event-header{
+      background:linear-gradient(135deg,#00001a,var(--navy),#000080);
+      color:var(--gold); text-align:center;
+      padding:18px; font-weight:900;
+      box-shadow:0px 4px 20px rgba(0,85,255,0.4);
+      border-bottom:2px solid #0055ff;
+      position:sticky; top:0; z-index:1000;
+    }
+    .title-main{ font-size:1.6rem; display:block; text-shadow:0 0 10px #0055ff,0 0 20px var(--gold); letter-spacing:2px; }
+    .title-sub{ font-size:0.85rem; color:#88ccff; text-transform:uppercase; letter-spacing:1px; margin-top:4px; display:block;}
+    .title-mini{ font-size:0.8rem; color:#bcdcff; margin-top:6px; display:block;}
+
+    .nav-bar{ display:flex; background:#0d0d20; overflow-x:auto; white-space:nowrap; border-bottom:1px solid #333; }
+    .nav-btn{ flex:1; padding:14px; text-align:center; cursor:pointer; border:none; background:none; color:#888; font-size:0.95rem; font-weight:bold; transition:0.3s; }
+    .nav-btn.active{ color:var(--gold); text-shadow:0 0 8px var(--gold); border-bottom:3px solid var(--gold); }
+
+    .tab-content{ display:none; padding:18px; max-width:650px; margin:auto; }
+    .tab-content.active{ display:block; }
+
+    .card{ background:var(--card); padding:18px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.5); margin-bottom:18px; border:1px solid #2a2a4a; }
+    label{ font-weight:bold; color:var(--gold); display:block; margin-top:14px; text-transform:uppercase; font-size:0.82rem; letter-spacing:0.5px; }
+    input[type="text"], input[type="number"], select, textarea{
+      width:100%; padding:12px; margin-top:5px; background:#1a1a3a; color:white;
+      border:1px solid #444; border-radius:6px; box-sizing:border-box; font-size:1rem;
+    }
+    input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 8px var(--gold); }
+
+    button.primary{
+      background:linear-gradient(135deg,var(--navy),#000099); color:var(--gold); border:1px solid var(--gold);
+      padding:14px; width:100%; font-size:1.05rem; border-radius:8px; cursor:pointer; font-weight:bold; margin-top:14px;
+      box-shadow:0 0 10px rgba(255,215,0,0.3); transition:0.2s; text-transform:uppercase;
+    }
+    button.primary:active{ box-shadow:0 0 20px rgba(255,215,0,0.8); transform:scale(0.98); }
+    button.primary[disabled]{ opacity:0.5; cursor:not-allowed; }
+
+    button.secondary{ background:#333; color:white; border:1px solid #555; padding:10px; width:100%; margin-top:8px; border-radius:8px; cursor:pointer; }
+
+    .stepper-group{ display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+    .stepper-btn{ flex:1; min-width:60px; background:#2a2a4a; color:white; border:1px solid #444; padding:12px; font-size:1.1rem; font-weight:bold; border-radius:8px; cursor:pointer; }
+    .stepper-btn:active{ background:var(--gold); color:black; }
+    .stepper-btn.danger-btn:active{ background:var(--danger); color:white; }
+
+    .totals{ font-size:1.25rem; font-weight:bold; margin-top:14px; display:block; text-align:center; background:#1a1a3a; padding:10px; border-radius:8px; border:1px solid #2b2b55;}
+    .tot-scored{ color:#00ff00; }
+    .tot-missed{ color:#ff3333; }
+
+    .compare-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; text-align:center; }
+    .compare-stat{ background:#1a1a3a; padding:12px; border-radius:10px; border:1px solid #444; }
+    .checkbox-group{ display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+    .checkbox-group label{ display:inline; font-weight:normal; margin-top:0; color:white; text-transform:none; font-size:1rem; }
+    input[type="checkbox"]{ width:auto; transform:scale(1.2); margin-right:5px; }
+
+    #photo-preview{ width:100%; border-radius:10px; margin-top:10px; display:none; border:2px solid var(--gold); }
+    .review-img{ width:100%; border-radius:10px; margin-top:10px; border:2px solid var(--gold); }
+
+    #success-overlay{
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,0.95); z-index:9999;
+      display:none; flex-direction:column; justify-content:center; align-items:center;
+      color:#00ff00; text-align:center;
+    }
+    .success-icon{
+      font-size:6rem; margin-bottom:18px;
+      animation:pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+      will-change: transform, opacity;
+    }
+    @keyframes pop{ 0%{ transform:scale(0); opacity:0;} 100%{ transform:scale(1); opacity:1;} }
+
+    /* Profile Modal */
+    #profile-modal{
+      position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:10000;
+      display:none; justify-content:center; align-items:center; padding:18px;
+    }
+    #profile-card{
+      width:100%; max-width:560px; background:#14142b; border:1px solid #2a2a4a;
+      border-radius:14px; padding:18px; box-shadow:0 8px 24px rgba(0,0,0,0.6);
+    }
+    .pill{ display:inline-block; font-size:0.8rem; padding:6px 10px; border-radius:999px; background:#1a1a3a; border:1px solid #2b2b55; color:#bcdcff; margin-top:10px; }
+    .tiny{ font-size:0.82rem; color:var(--muted); margin-top:10px; line-height:1.35; }
+    .row{ display:flex; gap:10px; }
+    .row > *{ flex:1; }
+
+    /* Profile selector list */
+    .picklist{ margin-top:12px; max-height:260px; overflow:auto; border:1px solid #2b2b55; border-radius:10px; background:#10102a; }
+    .pickitem{ padding:12px; border-bottom:1px solid #2b2b55; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+    .pickitem:last-child{ border-bottom:none; }
+    .pickitem:hover{ background:#1a1a3a; }
+    .tag{ font-size:0.75rem; padding:3px 8px; border-radius:999px; border:1px solid #444; color:#bcdcff; background:#1a1a3a; }
+
+    /* Alliance Board */
+    .teamcard{
+      background:#1a1a3a; border:1px solid #444; border-radius:12px; padding:12px; margin-top:10px;
+      border-left:4px solid #0055ff;
+    }
+    .teamcard.consensus-2{ border-left-color: var(--gold); box-shadow:0 0 10px rgba(255,215,0,0.25); }
+    .teamcard.consensus-3{ border-left-color: var(--gold); box-shadow:0 0 16px rgba(255,215,0,0.45); }
+    .badges{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    .badge{ font-size:0.75rem; padding:4px 8px; border-radius:999px; background:#10102a; border:1px solid #2b2b55; color:#bcdcff; }
+
+  </style>
+</head>
+<body>
+
+  <!-- Success Overlay -->
+  <div id="success-overlay">
+    <div class="success-icon">✅</div>
+    <h1 id="success-message" style="text-transform: uppercase; letter-spacing: 2px;">Saved</h1>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profile-modal">
+    <div id="profile-card">
+      <div style="text-align:center;">
+        <div style="font-size:2rem;">⚡</div>
+        <h2 style="margin:10px 0 4px 0; color:var(--gold);">Scout Profile</h2>
+        <div class="tiny">Start typing your name to select an existing profile, or create a new one.</div>
+        <div class="pill" id="profile-event-pill">Loading event…</div>
+      </div>
+
+      <label style="margin-top:16px;">Your Name</label>
+      <input type="text" id="profile-name" placeholder="Type any part of your name…" autocomplete="name">
+
+      <div class="tiny" style="margin-top:10px;">
+        Matches below are existing profiles. Tap one to use it on this device.
+      </div>
+      <div class="picklist" id="profile-picklist"></div>
+
+      <button class="primary" id="profile-create-btn" onclick="createOrUseProfile()">Create / Use This Name</button>
+
+      <div class="tiny">
+        If you pick an existing profile, this device will “remember” it. (localStorage)
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div id="global-event-header">
+    <span class="title-main">⚡ WARLOCKS 1507 ⚡</span>
+    <span class="title-sub" id="event-name-display">Loading…</span>
+    <span class="title-mini" id="scout-display" style="display:none;">Scout: —</span>
+  </div>
+
+  <!-- Nav -->
+  <div class="nav-bar">
+    <button class="nav-btn active" onclick="switchTab('match', this)">Match</button>
+    <button class="nav-btn" onclick="switchTab('pit', this)">Pit</button>
+    <button class="nav-btn" onclick="switchTab('review', this)">Review</button>
+    <button class="nav-btn" onclick="switchTab('compare', this)">Compare</button>
+    <button class="nav-btn" onclick="switchTab('board', this)">Alliance Board</button>
+    <button class="nav-btn" onclick="switchTab('admin', this)">Admin</button>
+  </div>
+
+  <!-- MATCH TAB -->
+  <div id="match" class="tab-content active">
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="color:#88ccff; font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">Your Assignments</div>
+          <div style="color:#ccc; font-size:0.95rem;" id="my-assignments-summary">Loading…</div>
+        </div>
+        <button class="secondary" style="width:auto; padding:10px 12px;" onclick="refreshFromServer()">Refresh</button>
+      </div>
+      <div id="my-assignments-list" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <label>Match Level</label>
+      <select id="m_compLevel">
+        <option value="qm">Quals</option><option value="qf">Quarters</option><option value="sf">Semis</option><option value="f">Finals</option>
+      </select>
+
+      <label>Match #</label>
+      <input type="number" id="m_matchNum" onblur="loadMatchTeamsLocal()" placeholder="Enter Match Number">
+      <button class="secondary" onclick="loadMatchTeamsLocal()">Load Teams (Instant)</button>
+
+      <label>Select Team</label>
+      <select id="m_teamSelect" onchange="autoSelectAlliance()">
+        <option value="">-- Enter Match # First --</option>
+      </select>
+
+      <label>Alliance</label>
+      <select id="m_alliance"><option>Red</option><option>Blue</option></select>
+    </div>
+
+    <div class="card">
+      <h3 style="color:white; margin-top:0;">Auto Phase</h3>
+      <label>Starting Position</label>
+      <select id="m_autoStart">
+        <option>In front of Hub</option><option>Left of Hub</option><option>Right of Hub</option>
+      </select>
+      <label>Auto Fuel Scored</label><input type="number" id="m_autoFuel" value="0">
+      <div class="checkbox-group">
+        <input type="checkbox" id="m_autoClimb"><label>Climbed in Auto</label>
+        <input type="checkbox" id="m_autoDead"><label>Robot Died/No Show</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:white; margin-top:0;">Tele-op Phase</h3>
+
+      <label>Fuel Scored (Green)</label>
+      <div class="stepper-group">
+        <button class="stepper-btn" onclick="adjScore(1)">+1</button>
+        <button class="stepper-btn" onclick="adjScore(5)">+5</button>
+        <button class="stepper-btn" onclick="adjScore(10)">+10</button>
+        <button class="stepper-btn" onclick="adjScore(-1)">-1</button>
+      </div>
+      <span class="totals tot-scored">Total Scored: <span id="totalScored">0</span></span>
+
+      <label>Fuel Missed (Red)</label>
+      <div class="stepper-group">
+        <button class="stepper-btn danger-btn" onclick="adjMissed(1)">+1</button>
+        <button class="stepper-btn danger-btn" onclick="adjMissed(5)">+5</button>
+        <button class="stepper-btn danger-btn" onclick="adjMissed(10)">+10</button>
+        <button class="stepper-btn danger-btn" onclick="adjMissed(-1)">-1</button>
+      </div>
+      <span class="totals tot-missed">Total Missed: <span id="totalMissed">0</span></span>
+
+      <label>Pickup Source</label>
+      <div class="checkbox-group">
+        <input type="checkbox" id="m_pickupFloor" value="Floor"><label>Floor</label>
+        <input type="checkbox" id="m_pickupDepot" value="Depot"><label>Depot</label>
+        <input type="checkbox" id="m_pickupOutpost" value="Outpost"><label>Outpost</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:white; margin-top:0;">Post-Match Ratings</h3>
+
+      <label>Primary Role</label>
+      <select id="m_primaryRole"><option>Scorer</option><option>Feeder</option><option>Defense</option></select>
+
+      <label>Cycle Speed Rating</label>
+      <select id="m_cycleSpeed">
+        <option value="5">5 - Very Fast</option><option value="4">4 - Fast</option><option value="3" selected>3 - Average</option><option value="2">2 - Slow</option><option value="1">1 - Very Slow</option>
+      </select>
+
+      <label>Endgame</label>
+      <div class="checkbox-group"><input type="checkbox" id="m_endgameAttempt"><label>Attempted Climb</label></div>
+      <select id="m_endgameLevel"><option>None</option><option>Level 1</option><option>Level 2</option><option>Level 3</option></select>
+
+      <label>Notes</label><textarea id="m_notes" rows="3"></textarea>
+    </div>
+
+    <button class="primary" id="saveMatchBtn" onclick="submitMatch()">Save Match</button>
+  </div>
+
+  <!-- PIT TAB -->
+  <div id="pit" class="tab-content">
+    <div class="card">
+      <label>Team Number</label>
+      <input type="number" id="p_teamNum" placeholder="FRC Team #">
+
+      <button class="secondary" style="margin-top:12px;" onclick="pullTBA()">Fetch Info from TBA</button>
+      <div id="tba-spinner" style="display:none; color:var(--gold); margin-top:12px; text-align:center; font-weight:bold;">Fetching TBA data...</div>
+      <div id="tba-results" style="display:none; margin-top:12px; background:#1a1a3a; padding:12px; border-radius:8px; border:1px solid #444;">
+        <p><strong>Name:</strong> <span id="tba-name"></span></p>
+        <p><strong>Hometown:</strong> <span id="tba-city"></span></p>
+        <p><strong>Last Year Awards:</strong> <span id="tba-awards"></span></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:white; margin-top:0;">Mobility & Auto</h3>
+      <label>Drive Type</label>
+      <select id="p_driveType"><option>Swerve</option><option>Tank</option><option>Mecanum</option><option>Other</option></select>
+
+      <label>Start Position</label>
+      <select id="p_autoStart"><option>Hub</option><option>Left</option><option>Right</option></select>
+
+      <label>Auto Routine</label><textarea id="p_autoDesc" rows="2"></textarea>
+
+      <label>Climb During Auto?</label>
+      <select id="p_climbDuringAuto">
+        <option value="">Unknown</option><option>Yes</option><option>No</option>
+      </select>
+
+      <label>Under Trench?</label>
+      <select id="p_trench"><option>Unknown</option><option>Yes</option><option>No</option></select>
+    </div>
+
+    <div class="card">
+      <h3 style="color:white; margin-top:0;">Capabilities</h3>
+
+      <label>Climber Capability</label>
+      <select id="p_climber"><option>None</option><option>Level 1</option><option>Level 2</option><option>Level 3</option></select>
+
+      <label>Climb Location</label>
+      <select id="p_climbLocation"><option value="">Unknown</option><option>Center</option><option>Side</option><option>Other</option></select>
+
+      <label>Vision Capability</label>
+      <select id="p_vision"><option>None</option><option>Basic</option><option>Advanced</option></select>
+
+      <label>Number of Shooters</label>
+      <input type="number" id="p_numShooters" min="0" placeholder="e.g., 1">
+
+      <label>Turret Shooter?</label>
+      <select id="p_turretShooter"><option value="">Unknown</option><option>Yes</option><option>No</option></select>
+
+      <label>Fuel Hopper Capacity</label><input type="number" id="p_hopper">
+
+      <label>Jam Risk</label>
+      <select id="p_jamRisk"><option value="">Unknown</option><option>Low</option><option>Medium</option><option>High</option></select>
+
+      <label>Fuel Acquisition</label>
+      <select id="p_fuelAcq"><option value="">Unknown</option><option>Floor</option><option>Human Player</option><option>Hopper/Station</option><option>Mixed</option></select>
+
+      <label>Primary Role</label>
+      <select id="p_role"><option>Scorer</option><option>Feeder</option><option>Defense</option></select>
+
+      <label>Favorite?</label>
+      <select id="p_favorite">
+        <option value="false">No</option><option value="true">Yes</option>
+      </select>
+
+      <label>Overall Rank (subjective)</label>
+      <input type="number" id="p_overallRank" min="1" max="100" placeholder="1-100">
+
+      <label>Pit Notes (simple)</label>
+      <textarea id="p_pitNotes" rows="3" placeholder="What matters for alliance selection?"></textarea>
+    </div>
+
+    <div class="card">
+      <label>Robot Photo (auto-compressed)</label>
+      <input type="file" accept="image/*" capture="environment" id="cameraInput" style="background:none; border:none; padding:0;">
+      <img id="photo-preview" src="">
+      <div class="tiny">Photos are resized before upload to stay fast on cellular.</div>
+    </div>
+
+    <button class="primary" id="savePitBtn" onclick="submitPitCheck()">Save Pit Data</button>
+  </div>
+
+  <!-- REVIEW TAB (Decision-first) -->
+  <div id="review" class="tab-content">
+    <div class="card">
+      <label>Lookup Team</label>
+      <input type="number" id="r_teamNum" placeholder="FRC Team #">
+      <button class="primary" onclick="loadReview()">Get Robot Report</button>
+      <div id="review-spinner" style="display:none; color:var(--gold); margin-top:12px; text-align:center;">Compiling database records...</div>
+    </div>
+
+    <div id="review-results" class="card" style="display:none;">
+      <h2 style="color:white; margin-top:0; text-align:center; font-size:2rem;">
+        Team <span id="r_displayTeam"></span>
+      </h2>
+
+      <div style="text-align:center; margin-top:-6px; color:#aaa; font-size:0.9rem;">
+        <span id="r_tbaAwards"></span>
+      </div>
+
+      <img id="r_photo" class="review-img" src="" alt="No Photo Available" style="display:none;">
+
+      <h3 style="color:white; border-bottom:1px solid #444; padding-bottom:5px; margin-top:20px;">Decision Snapshot</h3>
+      <div class="compare-grid">
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Matches Scouted</span><strong style="font-size:1.5rem;" id="r_matches">0</strong></div>
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Accuracy</span><strong style="font-size:1.5rem;" id="r_accuracy">0%</strong></div>
+
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Avg Scored</span><strong style="font-size:1.5rem; color:#00ff00;" id="r_avgFuel">0</strong></div>
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Avg Missed</span><strong style="font-size:1.5rem; color:#ff3333;" id="r_avgMissed">0</strong></div>
+
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Dead Rate</span><strong style="font-size:1.5rem;" id="r_dead">0%</strong></div>
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Climb Rate</span><strong style="font-size:1.5rem;" id="r_climb">0%</strong></div>
+
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Auto Climb</span><strong style="font-size:1.5rem;" id="r_autoClimb">0%</strong></div>
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Endgame Climb</span><strong style="font-size:1.5rem;" id="r_endClimb">0%</strong></div>
+
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Role Trend</span><strong style="font-size:1.3rem;" id="r_role">—</strong></div>
+        <div class="compare-stat"><span style="color:#aaa; font-size:0.8rem; display:block;">Cycle Speed</span><strong style="font-size:1.3rem;" id="r_speed">—</strong></div>
+      </div>
+
+      <h3 style="color:white; border-bottom:1px solid #444; padding-bottom:5px; margin-top:20px;">Pit Profile</h3>
+      <div id="r_pitKey" style="color:#ccc; font-size:0.95rem;"></div>
+
+      <h3 style="color:white; border-bottom:1px solid #444; padding-bottom:5px; margin-top:20px;">Notes (Pit + Matches)</h3>
+      <div id="r_notesBlock" style="color:#ccc; font-size:0.9rem;"></div>
+    </div>
+  </div>
+
+  <!-- COMPARE TAB -->
+  <div id="compare" class="tab-content">
+    <div class="card">
+      <div class="row">
+        <div><label>Team A</label><input type="number" id="c_team1"></div>
+        <div><label>Team B</label><input type="number" id="c_team2"></div>
+      </div>
+      <button class="primary" onclick="loadCompare()">Compare Teams</button>
+      <div id="compare-spinner" style="display:none; color:var(--gold); margin-top:12px; text-align:center;">Crunching numbers...</div>
+    </div>
+
+    <div id="compare-results" class="card" style="display:none;">
+      <table style="width:100%; color:white; text-align:center; border-collapse:collapse;">
+        <tr style="border-bottom:1px solid #444;">
+          <th style="padding:10px; color:var(--gold);" id="c_t1_lbl">T1</th>
+          <th style="padding:10px; color:#aaa;">Stat</th>
+          <th style="padding:10px; color:var(--gold);" id="c_t2_lbl">T2</th>
+        </tr>
+        <tr><td id="c_t1_fuel" style="padding:10px; font-size:1.2rem;">0</td><td style="font-size:0.8rem; color:#aaa;">Avg Scored</td><td id="c_t2_fuel" style="padding:10px; font-size:1.2rem;">0</td></tr>
+        <tr><td id="c_t1_missed" style="padding:10px; font-size:1.2rem; color:#ff3333;">0</td><td style="font-size:0.8rem; color:#aaa;">Avg Missed</td><td id="c_t2_missed" style="padding:10px; font-size:1.2rem; color:#ff3333;">0</td></tr>
+        <tr><td id="c_t1_acc" style="padding:10px; font-size:1.2rem;">0%</td><td style="font-size:0.8rem; color:#aaa;">Accuracy</td><td id="c_t2_acc" style="padding:10px; font-size:1.2rem;">0%</td></tr>
+        <tr><td id="c_t1_auto" style="padding:10px; font-size:1.2rem;">0</td><td style="font-size:0.8rem; color:#aaa;">Auto Fuel</td><td id="c_t2_auto" style="padding:10px; font-size:1.2rem;">0</td></tr>
+        <tr><td id="c_t1_climb" style="padding:10px; font-size:1.2rem;">0%</td><td style="font-size:0.8rem; color:#aaa;">Climb %</td><td id="c_t2_climb" style="padding:10px; font-size:1.2rem;">0%</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ALLIANCE BOARD TAB -->
+  <div id="board" class="tab-content">
+    <div class="card">
+      <h2 style="color:var(--gold); margin-top:0; text-align:center;">⚡ Alliance Board</h2>
+      <p style="font-size:0.9rem; color:#aaa; text-align:center; margin-top:6px;">
+        Consensus highlighting: 2+ scouts = highlighted, 3+ scouts = strong highlight.
+      </p>
+
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <input type="number" id="board_addTeam" placeholder="Add favorite team #" style="flex:2; margin-top:0;">
+        <button class="primary" style="flex:1; margin-top:0; padding:10px;" onclick="boardAddFavorite()">Add</button>
+      </div>
+
+      <div class="tiny" id="board_status"></div>
+
+      <h3 style="color:white; margin-top:16px; border-bottom:1px solid #444; padding-bottom:6px;">Master Favorites (by consensus)</h3>
+      <div id="board_master"></div>
+
+      <h3 style="color:white; margin-top:20px; border-bottom:1px solid #444; padding-bottom:6px;">Favorites by Scout</h3>
+      <div id="board_perScout"></div>
+
+      <button class="primary" style="background:#2a2a4a; border-color:var(--gold);" onclick="refreshFromServer()">Refresh Board</button>
+      <button class="primary" style="background:#550000; border-color:red; color:white;" onclick="boardClearMine()">Clear My Favorites</button>
+    </div>
+  </div>
+
+  <!-- ADMIN TAB -->
+  <div id="admin" class="tab-content">
+    <div class="card">
+      <h3 style="color:red; margin-top:0;">Admin Initialization</h3>
+      <p style="font-size:0.9rem; color:#aaa;">Sync schedule/teams from TBA. (Overwrites Teams & Matches sheets.)</p>
+      <button class="primary" onclick="initDB()" style="background:#550000; border-color:red; color:white;">Sync Real Event Schedule</button>
+
+      <h3 style="color:var(--gold); margin-top:20px;">Testing Tools</h3>
+      <button class="primary" onclick="initPractice()" style="background:#2a2a4a; border-color:var(--gold);">Configure Practice Event</button>
+
+      <div id="admin-spinner" style="display:none; color:var(--gold); margin-top:12px; text-align:center; font-weight:bold;">Working with The Blue Alliance…</div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--gold); margin-top:0;">Scout Assignments</h3>
+      <p style="font-size:0.9rem; color:#aaa;">Assign a specific match + team to a scout (stored server-side).</p>
+
+      <label>Scout</label>
+      <select id="a_scoutSelect"><option value="">Loading scouts…</option></select>
+
+      <label>Comp Level</label>
+      <select id="a_compLevel"><option value="qm">Quals</option><option value="qf">Quarters</option><option value="sf">Semis</option><option value="f">Finals</option></select>
+
+      <label>Match #</label>
+      <input type="number" id="a_matchNum" placeholder="e.g., 12">
+
+      <button class="secondary" onclick="adminLoadMatchTeamsLocal()">Load Teams (Instant)</button>
+
+      <label>Team #</label>
+      <select id="a_teamNum"><option value="">-- Load match teams --</option></select>
+
+      <label>Notes (optional)</label>
+      <input type="text" id="a_notes" placeholder="e.g., focus on defense timing">
+
+      <button class="primary" onclick="adminAssign()">Assign Match + Team</button>
+      <button class="primary" style="background:#550000; border-color:red; color:white;" onclick="adminClearAssignments()">Clear Assignments For Scout</button>
+
+      <div id="admin-assign-result" class="tiny"></div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------
+    // GLOBAL STATE (one payload)
+    // -------------------------
+    let payload = null;
+    let appConfig = null;
+    let eventIndex = {};
+    let allScouts = [];
+    let allianceBoard = null;
+
+    let scoutId = "";
+    let scoutName = "";
+    let currentEventKey = "";
+
+    let base64Photo = "";
+    let scoredCount = 0;
+    let missedCount = 0;
+    let loadedMatchKey = "";
+
+    // -------------------------
+    // INIT (single server call)
+    // -------------------------
+    window.onload = function() {
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(p => {
+          payload = p;
+          appConfig = p.config;
+          eventIndex = p.eventIndex || {};
+          allScouts = p.scouts || [];
+          allianceBoard = p.allianceBoard || { masterTeams:[], perScout:[] };
+
+          currentEventKey = appConfig.eventKey || "";
+          setHeaderEvent(appConfig.eventName || "Event");
+          document.getElementById('profile-event-pill').innerText = appConfig.eventName || "Event";
+
+          // Profile selection
+          const savedScoutId = localStorage.getItem('scout_id') || '';
+          if (savedScoutId) {
+            // If device has a scout id, try to bind a name from server list
+            const found = allScouts.find(s => String(s.scout_id) === String(savedScoutId));
+            if (found) {
+              scoutId = savedScoutId;
+              scoutName = found.scout_name;
+              localStorage.setItem('scout_name', scoutName);
+              setScoutDisplay();
+              renderScoutDropdown();
+              renderAssignments([]);
+              renderAllianceBoard(allianceBoard);
+              // Fetch bootstrap (assignments/favs) only once after we know identity
+              refreshBootstrapOnly();
+              return;
+            }
+          }
+
+          // Otherwise: show selector modal
+          showProfileModal(true);
+          bindProfileTypeahead();
+          renderProfilePicklist('');
+        })
+        .getInitialPayload();
+    };
+
+    function setHeaderEvent(text){ document.getElementById('event-name-display').innerText = text; }
+    function setScoutDisplay(){
+      const el = document.getElementById('scout-display');
+      el.style.display = 'block';
+      el.innerText = `Scout: ${scoutName}`;
+    }
+
+    // -------------------------
+    // PROFILE MODAL + TYPEAHEAD
+    // -------------------------
+    function showProfileModal(show){
+      document.getElementById('profile-modal').style.display = show ? 'flex' : 'none';
+      if (show){
+        document.getElementById('profile-name').value = (localStorage.getItem('scout_name') || '').trim();
+        setTimeout(() => document.getElementById('profile-name').focus(), 50);
+      }
+    }
+
+    function bindProfileTypeahead(){
+      const input = document.getElementById('profile-name');
+      let t = null;
+      input.oninput = () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          renderProfilePicklist((input.value || '').trim());
+        }, 150);
+      };
+    }
+
+    function renderProfilePicklist(filterText){
+      const list = document.getElementById('profile-picklist');
+      const q = String(filterText || '').toLowerCase();
+
+      const matches = allScouts
+        .filter(s => !q || String(s.scout_name).toLowerCase().includes(q))
+        .slice(0, 40);
+
+      if (!matches.length){
+        list.innerHTML = `<div class="pickitem" style="cursor:default; color:#99a;">
+          No matches yet. Use the button below to create this name.
+        </div>`;
+        return;
+      }
+
+      list.innerHTML = matches.map(s => `
+        <div class="pickitem" onclick="selectExistingScout('${escapeAttr(s.scout_id)}','${escapeAttr(s.scout_name)}')">
+          <div style="font-weight:700; color:#fff;">${escapeHtml(s.scout_name)}</div>
+          <span class="tag">Use</span>
+        </div>
+      `).join('');
+    }
+
+    function selectExistingScout(id, name){
+      scoutId = id;
+      scoutName = name;
+      localStorage.setItem('scout_id', scoutId);
+      localStorage.setItem('scout_name', scoutName);
+      showProfileModal(false);
+      setScoutDisplay();
+      renderScoutDropdown();
+      refreshBootstrapOnly();
+      renderAllianceBoard(allianceBoard);
+    }
+
+    function createOrUseProfile(){
+      const name = (document.getElementById('profile-name').value || '').trim();
+      if (!name) return alert("Please enter your name.");
+
+      // create a candidate id for new profile; server will return existing if name matches
+      const candidateId = uuidv4();
+      const btn = document.getElementById('profile-create-btn');
+      btn.disabled = true;
+
+      google.script.run
+        .withFailureHandler(err => { btn.disabled = false; alert(err.message); })
+        .withSuccessHandler(res => {
+          btn.disabled = false;
+          scoutId = res.scout_id;
+          scoutName = res.scout_name;
+
+          localStorage.setItem('scout_id', scoutId);
+          localStorage.setItem('scout_name', scoutName);
+
+          // If server matched an existing profile, we should sync list (optional refresh)
+          showProfileModal(false);
+          setScoutDisplay();
+
+          // Pull bootstrap
+          refreshFromServer();
+          showSuccessScreen(res.existed ? "PROFILE FOUND!" : "PROFILE CREATED!");
+        })
+        .registerOrLookupScout(candidateId, name);
+    }
+
+    // -------------------------
+    // NAV
+    // -------------------------
+    function switchTab(tabId, btnEl){
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      if (btnEl) btnEl.classList.add('active');
+    }
+
+    function showSuccessScreen(message){
+      window.scrollTo({ top:0, behavior:'smooth' });
+      document.getElementById('success-message').innerText = message;
+      const overlay = document.getElementById('success-overlay');
+      overlay.style.display = 'flex';
+      setTimeout(() => overlay.style.display = 'none', 1600);
+    }
+
+    // -------------------------
+    // MATCH LOGIC (LOCAL MATCH INDEX)
+    // -------------------------
+    function adjScore(amount){
+      scoredCount = Math.max(0, scoredCount + amount);
+      document.getElementById('totalScored').innerText = scoredCount;
+    }
+    function adjMissed(amount){
+      missedCount = Math.max(0, missedCount + amount);
+      document.getElementById('totalMissed').innerText = missedCount;
+    }
+
+    function loadMatchTeamsLocal(){
+      const matchNum = String(document.getElementById('m_matchNum').value || '').trim();
+      const compLevel = document.getElementById('m_compLevel').value;
+      if (!matchNum) return;
+
+      const k = `${compLevel}_${matchNum}`;
+      const res = eventIndex[k];
+      if (!res){
+        alert(`Could not find Match ${matchNum} for ${compLevel.toUpperCase()}.`);
+        return;
+      }
+
+      loadedMatchKey = res.match_key || "";
+
+      const select = document.getElementById('m_teamSelect');
+      const opts = ['<option value="">-- Select Team --</option>']
+        .concat((res.red || []).map(t => `<option value="${t}" data-alliance="Red">${t} (Red)</option>`))
+        .concat((res.blue || []).map(t => `<option value="${t}" data-alliance="Blue">${t} (Blue)</option>`));
+      select.innerHTML = opts.join('');
+
+      applyAssignmentToMatchUI(compLevel, matchNum);
+    }
+
+    function autoSelectAlliance(){
+      const select = document.getElementById('m_teamSelect');
+      const selectedOption = select.options[select.selectedIndex];
+      if (selectedOption?.dataset?.alliance){
+        document.getElementById('m_alliance').value = selectedOption.dataset.alliance;
+      }
+    }
+
+    function applyAssignmentToMatchUI(compLevel, matchNum){
+      const assigns = (payload?.bootstrap?.assignments) || [];
+      const a = assigns.find(x => String(x.comp_level) === String(compLevel) && String(x.match_number) === String(matchNum));
+      if (!a) return;
+
+      const select = document.getElementById('m_teamSelect');
+      const team = String(a.team_number || '');
+      for (let i = 0; i < select.options.length; i++){
+        if (String(select.options[i].value) === team){
+          select.selectedIndex = i;
+          autoSelectAlliance();
+          break;
+        }
+      }
+    }
+
+    function submitMatch(){
+      if (!scoutId) return alert("Select your scout profile first.");
+
+      const selectedTeam = document.getElementById('m_teamSelect').value;
+      const matchNum = String(document.getElementById('m_matchNum').value || '').trim();
+      const compLevel = document.getElementById('m_compLevel').value;
+
+      if (!selectedTeam) return alert("Please select a team before saving.");
+      if (!matchNum) return alert("Enter a match number.");
+
+      const sources = [];
+      if (document.getElementById('m_pickupFloor').checked) sources.push('Floor');
+      if (document.getElementById('m_pickupDepot').checked) sources.push('Depot');
+      if (document.getElementById('m_pickupOutpost').checked) sources.push('Outpost');
+
+      const data = {
+        scout_id: scoutId,
+        scout_name: scoutName,
+        event_key: currentEventKey,
+
+        match_key: loadedMatchKey || (currentEventKey + "_" + compLevel + matchNum),
+        comp_level: compLevel,
+        match_number: matchNum,
+
+        alliance: document.getElementById('m_alliance').value,
+        station: 1,
+        team_number: selectedTeam,
+
+        auto_dead: document.getElementById('m_autoDead').checked,
+        auto_start_position: document.getElementById('m_autoStart').value,
+        auto_fuel_hub: document.getElementById('m_autoFuel').value,
+        auto_climb: document.getElementById('m_autoClimb').checked,
+
+        teleop_fuel_hub_scored: scoredCount,
+        teleop_fuel_hub_missed: missedCount,
+
+        cycle_speed: document.getElementById('m_cycleSpeed').value,
+        primary_role: document.getElementById('m_primaryRole').value,
+        fuel_pickup_source: sources.join(', '),
+
+        endgame_attempt: document.getElementById('m_endgameAttempt').checked,
+        endgame_level: document.getElementById('m_endgameLevel').value,
+        notes: document.getElementById('m_notes').value
+      };
+
+      const btn = document.getElementById('saveMatchBtn');
+      btn.disabled = true;
+
+      google.script.run
+        .withFailureHandler(err => { btn.disabled = false; alert(err.message); })
+        .withSuccessHandler(() => {
+          btn.disabled = false;
+          resetMatchForm();
+          showSuccessScreen("MATCH SAVED!");
+        })
+        .submitMatchReport(data);
+    }
+
+    function resetMatchForm(){
+      document.getElementById('m_teamSelect').value = "";
+      document.getElementById('m_matchNum').value = "";
+      document.getElementById('m_autoFuel').value = "0";
+      document.getElementById('m_notes').value = "";
+      document.getElementById('m_autoDead').checked = false;
+      document.getElementById('m_autoClimb').checked = false;
+      document.getElementById('m_pickupFloor').checked = false;
+      document.getElementById('m_pickupDepot').checked = false;
+      document.getElementById('m_pickupOutpost').checked = false;
+      document.getElementById('m_endgameAttempt').checked = false;
+
+      scoredCount = 0; missedCount = 0;
+      document.getElementById('totalScored').innerText = "0";
+      document.getElementById('totalMissed').innerText = "0";
+      loadedMatchKey = "";
+    }
+
+    // -------------------------
+    // PIT: TBA + PHOTO + submit
+    // -------------------------
+    function pullTBA(){
+      const teamNum = String(document.getElementById('p_teamNum').value || '').trim();
+      if (!teamNum) return alert("Enter a team number first.");
+
+      document.getElementById('tba-spinner').style.display = 'block';
+      document.getElementById('tba-results').style.display = 'none';
+
+      google.script.run.withSuccessHandler(res => {
+        document.getElementById('tba-spinner').style.display = 'none';
+        if (res.error) { alert(res.error); return; }
+        document.getElementById('tba-name').innerText = res.team_name;
+        document.getElementById('tba-city').innerText = res.hometown;
+        document.getElementById('tba-awards').innerText = res.past_awards;
+        document.getElementById('tba-results').style.display = 'block';
+      }).fetchPitTeamInfo(teamNum);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const cam = document.getElementById('cameraInput');
+      if (!cam) return;
+      cam.addEventListener('change', async function(e){
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+          base64Photo = await resizeImageToDataURL(file, 1280, 0.82);
+          const preview = document.getElementById('photo-preview');
+          preview.src = base64Photo;
+          preview.style.display = 'block';
+        } catch (err) {
+          alert("Could not process image.");
+        }
+      });
+    });
+
+    function resizeImageToDataURL(file, maxWidth, quality){
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = reject;
+          img.onload = () => {
+            const scale = Math.min(1, maxWidth / img.width);
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function submitPitCheck(){
+      if (!scoutId) return alert("Select your scout profile first.");
+
+      const teamNum = String(document.getElementById('p_teamNum').value || '').trim();
+      if (!teamNum) return alert("Please enter a team number.");
+
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(exists => {
+          if (exists) {
+            if (!confirm(`A Pit Report exists for Team ${teamNum}. Overwrite?`)) return;
+          }
+          executePitSubmit(exists);
+        })
+        .checkPitExists(teamNum);
+    }
+
+    function executePitSubmit(overwrite){
+      const data = {
+        scout_id: scoutId,
+        scout_name: scoutName,
+
+        team_number: document.getElementById('p_teamNum').value,
+        team_name: document.getElementById('tba-name').innerText || "Unknown",
+
+        image_base64: base64Photo,
+
+        drive_type: document.getElementById('p_driveType').value,
+        starting_position: document.getElementById('p_autoStart').value,
+        auto_description: document.getElementById('p_autoDesc').value,
+        climb_during_auto: document.getElementById('p_climbDuringAuto').value,
+
+        climber_capability: document.getElementById('p_climber').value,
+        climb_location: document.getElementById('p_climbLocation').value,
+        num_shooters: document.getElementById('p_numShooters').value,
+        vision_capability: document.getElementById('p_vision').value,
+        under_trench: document.getElementById('p_trench').value,
+        turret_shooter: document.getElementById('p_turretShooter').value,
+
+        hopper_capacity_fuel: document.getElementById('p_hopper').value,
+        jam_risk: document.getElementById('p_jamRisk').value,
+        fuel_acquisition: document.getElementById('p_fuelAcq').value,
+        primary_role: document.getElementById('p_role').value,
+
+        favorite: document.getElementById('p_favorite').value === "true",
+        overall_rank: document.getElementById('p_overallRank').value,
+
+        pit_notes: document.getElementById('p_pitNotes').value
+      };
+
+      const btn = document.getElementById('savePitBtn');
+      btn.disabled = true;
+
+      google.script.run
+        .withFailureHandler(err => { btn.disabled = false; alert(err.message); })
+        .withSuccessHandler(() => {
+          btn.disabled = false;
+          clearPitForm();
+          showSuccessScreen("PIT SAVED!");
+          refreshFromServer();
+        })
+        .submitPitReport(data, overwrite);
+    }
+
+    function clearPitForm(){
+      document.getElementById('p_teamNum').value = "";
+      document.getElementById('p_autoDesc').value = "";
+      document.getElementById('p_hopper').value = "";
+      document.getElementById('p_numShooters').value = "";
+      document.getElementById('p_overallRank').value = "";
+      document.getElementById('p_pitNotes').value = "";
+
+      document.getElementById('p_trench').value = "Unknown";
+      document.getElementById('p_vision').value = "None";
+      document.getElementById('p_climbDuringAuto').value = "";
+      document.getElementById('p_climbLocation').value = "";
+      document.getElementById('p_turretShooter').value = "";
+      document.getElementById('p_jamRisk').value = "";
+      document.getElementById('p_fuelAcq').value = "";
+      document.getElementById('p_favorite').value = "false";
+
+      document.getElementById('tba-results').style.display = 'none';
+      document.getElementById('cameraInput').value = "";
+      document.getElementById('photo-preview').style.display = 'none';
+      base64Photo = "";
+    }
+
+    // -------------------------
+    // REVIEW (Decision-first + pit notes under notes)
+    // -------------------------
+    function loadReview(){
+      const teamNum = String(document.getElementById('r_teamNum').value || '').trim();
+      if (!teamNum) return;
+
+      document.getElementById('review-spinner').style.display = 'block';
+      document.getElementById('review-results').style.display = 'none';
+
+      google.script.run
+        .withFailureHandler(err => { alert(err.message); document.getElementById('review-spinner').style.display = 'none'; })
+        .withSuccessHandler(res => {
+          document.getElementById('review-spinner').style.display = 'none';
+          document.getElementById('review-results').style.display = 'block';
+
+          document.getElementById('r_displayTeam').innerText = teamNum;
+          document.getElementById('r_tbaAwards').innerText = res.tba?.past_awards ? `Awards (last year): ${res.tba.past_awards}` : '';
+
+          // Snapshot
+          document.getElementById('r_matches').innerText = res.stats.matchesPlayed;
+          document.getElementById('r_accuracy').innerText = res.stats.accuracy;
+          document.getElementById('r_avgFuel').innerText = res.stats.avgFuel;
+          document.getElementById('r_avgMissed').innerText = res.stats.avgMissed;
+
+          document.getElementById('r_dead').innerText = res.stats.deadRate;
+          document.getElementById('r_climb').innerText = res.stats.climbRate;
+          document.getElementById('r_autoClimb').innerText = res.stats.autoClimbRate;
+          document.getElementById('r_endClimb').innerText = res.stats.endClimbRate;
+
+          document.getElementById('r_role').innerText = res.trends?.role || '—';
+          document.getElementById('r_speed').innerText = res.trends?.cycleSpeed || '—';
+
+          // Photo
+          const img = document.getElementById('r_photo');
+          if (res.pit?.robot_photo_url && String(res.pit.robot_photo_url).includes('http')){
+            img.src = res.pit.robot_photo_url;
+            img.style.display = 'block';
+          } else {
+            img.style.display = 'none';
+          }
+
+          // Pit key fields
+          const pit = res.pit || {};
+          const pitKey = document.getElementById('r_pitKey');
+          pitKey.innerHTML = `
+            <div class="compare-grid" style="grid-template-columns:1fr 1fr;">
+              ${pit.drive_type ? `<div class="compare-stat"><div style="color:#aaa; font-size:0.8rem;">Drive</div><strong>${escapeHtml(pit.drive_type)}</strong></div>` : ``}
+              ${pit.primary_role ? `<div class="compare-stat"><div style="color:#aaa; font-size:0.8rem;">Primary Role</div><strong>${escapeHtml(pit.primary_role)}</strong></div>` : ``}
+              ${pit.climber_capability ? `<div class="compare-stat"><div style="color:#aaa; font-size:0.8rem;">Climber</div><strong>${escapeHtml(pit.climber_capability)}</strong></div>` : ``}
+              ${pit.vision_capability ? `<div class="compare-stat"><div style="color:#aaa; font-size:0.8rem;">Vision</div><strong>${escapeHtml(pit.vision_capability)}</strong></div>` : ``}
+              ${pit.fuel_acquisition ? `<div class="compare-stat"><div style="color:#aaa; font-size:0.8rem;">Fuel Pickup</div><strong>${escapeHtml(pit.fuel_acquisition)}</strong></div>` : ``}
+              ${pit.jam_risk ? `<div class="compare-stat"><div style="color:#aaa; font-size:0.8rem;">Jam Risk</div><strong>${escapeHtml(pit.jam_risk)}</strong></div>` : ``}
+            </div>
+          `;
+
+          // Notes block: Pit Notes first, then match notes
+          const notes = document.getElementById('r_notesBlock');
+          notes.innerHTML = '';
+
+          if (res.pitNotes && String(res.pitNotes).trim()){
+            notes.innerHTML += `
+              <div style="background:#1a1a3a; padding:12px; margin-bottom:10px; border-left:4px solid var(--gold); border-radius:10px;">
+                <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Pit Notes</div>
+                <div style="margin-top:6px; color:#fff;">${escapeHtml(res.pitNotes)}</div>
+              </div>
+            `;
+          }
+
+          if (res.matchNotes?.length){
+            res.matchNotes.forEach(n => {
+              const div = document.createElement('div');
+              div.style = "background:#1a1a3a; padding:10px; margin-bottom:10px; border-left:4px solid #0055ff; border-radius:10px;";
+              div.textContent = `Match ${n.match_number}: ${n.text}`;
+              notes.appendChild(div);
+            });
+          } else {
+            notes.innerHTML += "<p style='color:#888;'>No match notes yet.</p>";
+          }
+        })
+        .getBotSummary(teamNum);
+    }
+
+    // -------------------------
+    // COMPARE
+    // -------------------------
+    function loadCompare(){
+      const t1 = String(document.getElementById('c_team1').value || '').trim();
+      const t2 = String(document.getElementById('c_team2').value || '').trim();
+      if (!t1 || !t2) return alert("Please enter two team numbers.");
+
+      document.getElementById('compare-spinner').style.display = 'block';
+      document.getElementById('compare-results').style.display = 'none';
+
+      google.script.run
+        .withFailureHandler(err => { alert(err.message); document.getElementById('compare-spinner').style.display = 'none'; })
+        .withSuccessHandler(res => {
+          document.getElementById('compare-spinner').style.display = 'none';
+          document.getElementById('compare-results').style.display = 'block';
+
+          document.getElementById('c_t1_lbl').innerText = t1;
+          document.getElementById('c_t2_lbl').innerText = t2;
+
+          document.getElementById('c_t1_fuel').innerText = res.t1.stats.avgFuel;
+          document.getElementById('c_t2_fuel').innerText = res.t2.stats.avgFuel;
+          document.getElementById('c_t1_missed').innerText = res.t1.stats.avgMissed;
+          document.getElementById('c_t2_missed').innerText = res.t2.stats.avgMissed;
+          document.getElementById('c_t1_acc').innerText = res.t1.stats.accuracy;
+          document.getElementById('c_t2_acc').innerText = res.t2.stats.accuracy;
+          document.getElementById('c_t1_auto').innerText = res.t1.stats.avgAutoFuel;
+          document.getElementById('c_t2_auto').innerText = res.t2.stats.avgAutoFuel;
+          document.getElementById('c_t1_climb').innerText = res.t1.stats.climbRate;
+          document.getElementById('c_t2_climb').innerText = res.t2.stats.climbRate;
+        })
+        .getCompareData(t1, t2);
+    }
+
+    // -------------------------
+    // ALLIANCE BOARD (no search filter)
+    // -------------------------
+    function renderAllianceBoard(board){
+      const master = document.getElementById('board_master');
+      const perScout = document.getElementById('board_perScout');
+
+      const masterTeams = board?.masterTeams || [];
+      const per = board?.perScout || [];
+
+      if (!masterTeams.length){
+        master.innerHTML = "<p style='color:#777;'>No favorites yet.</p>";
+      } else {
+        master.innerHTML = masterTeams.map(t => {
+          const c = Number(t.count || 0);
+          const cls = c >= 3 ? 'consensus-3' : (c >= 2 ? 'consensus-2' : '');
+          const who = (t.scouts || []).map(s => `<span class="badge">${escapeHtml(s.scout_name)}</span>`).join('');
+          return `
+            <div class="teamcard ${cls}">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:1.15rem; font-weight:900; color:#fff;">Team ${escapeHtml(t.team)}</div>
+                <div class="tag">${c} ⭐</div>
+              </div>
+              <div class="badges">${who || '<span class="badge">—</span>'}</div>
+              <div style="display:flex; gap:8px; margin-top:10px;">
+                <button class="secondary" style="width:auto; padding:8px 10px;" onclick="quickReview('${escapeAttr(t.team)}')">Review</button>
+                <button class="secondary" style="width:auto; padding:8px 10px;" onclick="boardRemoveFavorite('${escapeAttr(t.team)}')">Remove Mine</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      perScout.innerHTML = per.map(s => {
+        const teams = (s.teams || []).map(t => `<span class="badge">#${escapeHtml(t)}</span>`).join(' ');
+        return `
+          <div class="teamcard" style="border-left-color:#2b2b55;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-weight:900; color:#fff;">${escapeHtml(s.scout_name)}</div>
+              <div class="tag">${(s.teams||[]).length} teams</div>
+            </div>
+            <div class="badges" style="margin-top:10px;">
+              ${teams || '<span class="badge">—</span>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function boardAddFavorite(){
+      if (!scoutId) return alert("Select your scout profile first.");
+      const team = String(document.getElementById('board_addTeam').value || '').trim();
+      if (!team) return alert("Enter a team number.");
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(board => {
+          document.getElementById('board_addTeam').value = "";
+          allianceBoard = board;
+          renderAllianceBoard(allianceBoard);
+          showSuccessScreen("FAVORITE ADDED!");
+        })
+        .addFavoriteForScout(scoutId, team);
+    }
+
+    function boardRemoveFavorite(team){
+      if (!scoutId) return alert("Select your scout profile first.");
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(board => {
+          allianceBoard = board;
+          renderAllianceBoard(allianceBoard);
+        })
+        .removeFavoriteForScout(scoutId, team);
+    }
+
+    function boardClearMine(){
+      if (!scoutId) return alert("Select your scout profile first.");
+      if (!confirm("Clear all favorites for your scout profile?")) return;
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(board => {
+          allianceBoard = board;
+          renderAllianceBoard(allianceBoard);
+          showSuccessScreen("CLEARED!");
+        })
+        .clearFavoritesForScout(scoutId);
+    }
+
+    function quickReview(team){
+      document.getElementById('r_teamNum').value = team;
+      switchTab('review', document.querySelectorAll('.nav-btn')[2]);
+      loadReview();
+    }
+
+    // -------------------------
+    // ASSIGNMENTS (My view)
+    // -------------------------
+    function renderAssignments(assigns){
+      const arr = Array.isArray(assigns) ? assigns : [];
+      const summary = document.getElementById('my-assignments-summary');
+      const list = document.getElementById('my-assignments-list');
+
+      if (!arr.length){
+        summary.innerText = "No assignments yet.";
+        list.innerHTML = "<p style='color:#777; margin:10px 0 0 0;'>If you expect assignments, hit Refresh or check Admin.</p>";
+        return;
+      }
+      summary.innerText = `${arr.length} assignment(s) loaded.`;
+
+      list.innerHTML = arr.map(a => {
+        const label = `${String(a.comp_level).toUpperCase()} ${a.match_number} — Team ${a.team_number}`;
+        const note = a.notes ? `<div style="color:#9ad; font-size:0.85rem; margin-top:6px;">Note: ${escapeHtml(a.notes)}</div>` : '';
+        return `
+          <div style="background:#1a1a3a; border:1px solid #444; border-radius:10px; padding:12px; margin-top:10px;">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+              <div style="color:#fff; font-weight:700;">${label}</div>
+              <button class="secondary" style="width:auto; padding:8px 10px;" onclick="jumpToAssignment('${escapeAttr(a.comp_level)}','${escapeAttr(a.match_number)}','${escapeAttr(a.team_number)}')">Open</button>
+            </div>
+            ${note}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function jumpToAssignment(compLevel, matchNum, teamNum){
+      switchTab('match', document.querySelectorAll('.nav-btn')[0]);
+      document.getElementById('m_compLevel').value = compLevel;
+      document.getElementById('m_matchNum').value = matchNum;
+      loadMatchTeamsLocal();
+      // selection happens via applyAssignmentToMatchUI()
+    }
+
+    // -------------------------
+    // ADMIN: Assignments + Sync
+    // -------------------------
+    function initDB(){
+      if(!confirm("Overwrite Teams & Matches with real TBA data?")) return;
+      document.getElementById('admin-spinner').style.display = 'block';
+      google.script.run
+        .withFailureHandler(err => { document.getElementById('admin-spinner').style.display = 'none'; alert("Error: " + err.message); })
+        .withSuccessHandler(msg => {
+          document.getElementById('admin-spinner').style.display = 'none';
+          alert(msg);
+          refreshFromServer();
+        })
+        .adminInitialize();
+    }
+
+    function initPractice(){
+      if(!confirm("Practice Mode: overwrite Matches with dummy schedule?")) return;
+      document.getElementById('admin-spinner').style.display = 'block';
+      google.script.run
+        .withFailureHandler(err => { document.getElementById('admin-spinner').style.display = 'none'; alert("Error: " + err.message); })
+        .withSuccessHandler(msg => {
+          document.getElementById('admin-spinner').style.display = 'none';
+          alert(msg);
+          refreshFromServer();
+          setHeaderEvent("PRACTICE MODE");
+        })
+        .adminPracticeMode();
+    }
+
+    function renderScoutDropdown(){
+      const sel = document.getElementById('a_scoutSelect');
+      if (!sel) return;
+      if (!Array.isArray(allScouts) || !allScouts.length){
+        sel.innerHTML = '<option value="">No scouts yet</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">-- Select Scout --</option>' +
+        allScouts.map(s => `<option value="${escapeAttr(s.scout_id)}">${escapeHtml(s.scout_name)}</option>`).join('');
+    }
+
+    function adminLoadMatchTeamsLocal(){
+      const matchNum = String(document.getElementById('a_matchNum').value || '').trim();
+      const compLevel = document.getElementById('a_compLevel').value;
+      if (!matchNum) return alert("Enter match # first.");
+
+      const k = `${compLevel}_${matchNum}`;
+      const res = eventIndex[k];
+      if (!res) return alert(`Could not find Match ${matchNum} for ${compLevel.toUpperCase()}.`);
+
+      const sel = document.getElementById('a_teamNum');
+      const opts = ['<option value="">-- Select Team --</option>']
+        .concat((res.red || []).map(t => `<option value="${t}">${t} (Red)</option>`))
+        .concat((res.blue || []).map(t => `<option value="${t}">${t} (Blue)</option>`));
+      sel.innerHTML = opts.join('');
+      sel.dataset.matchKey = res.match_key || '';
+    }
+
+    function adminAssign(){
+      const scout = document.getElementById('a_scoutSelect').value;
+      const compLevel = document.getElementById('a_compLevel').value;
+      const matchNum = String(document.getElementById('a_matchNum').value || '').trim();
+      const teamNum = document.getElementById('a_teamNum').value;
+      const matchKey = document.getElementById('a_teamNum').dataset.matchKey || '';
+      const notes = document.getElementById('a_notes').value || '';
+
+      if (!scout) return alert("Select a scout.");
+      if (!matchNum) return alert("Enter match #.");
+      if (!teamNum) return alert("Select team.");
+      if (!matchKey) return alert("Load match teams first.");
+
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(assigns => {
+          document.getElementById('admin-assign-result').innerText = `Assigned. Scout now has ${assigns.length} assignment(s).`;
+          if (scout === scoutId) refreshBootstrapOnly();
+          showSuccessScreen("ASSIGNED!");
+        })
+        .adminAssignMatchTeam(scout, matchKey, compLevel, matchNum, teamNum, notes);
+    }
+
+    function adminClearAssignments(){
+      const scout = document.getElementById('a_scoutSelect').value;
+      if (!scout) return alert("Select a scout.");
+      if (!confirm("Clear all assignments for this scout?")) return;
+
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(() => {
+          document.getElementById('admin-assign-result').innerText = `Assignments cleared.`;
+          if (scout === scoutId) refreshBootstrapOnly();
+          showSuccessScreen("CLEARED!");
+        })
+        .adminClearAssignmentsForScout(scout);
+    }
+
+    // -------------------------
+    // SERVER REFRESH (single call)
+    // -------------------------
+    function refreshFromServer(){
+      // pull new payload (eventIndex, scouts, alliance board, config) and bootstrap
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(p => {
+          payload = p;
+          appConfig = p.config;
+          eventIndex = p.eventIndex || {};
+          allScouts = p.scouts || [];
+          allianceBoard = p.allianceBoard || { masterTeams:[], perScout:[] };
+
+          setHeaderEvent(appConfig.eventName || "Event");
+          renderScoutDropdown();
+          renderAllianceBoard(allianceBoard);
+
+          // refresh my bootstrap
+          refreshBootstrapOnly();
+        })
+        .getInitialPayload();
+    }
+
+    function refreshBootstrapOnly(){
+      if (!scoutId) return;
+      google.script.run
+        .withFailureHandler(err => alert(err.message))
+        .withSuccessHandler(res => {
+          // store bootstrap inside payload for assignment auto-apply
+          payload.bootstrap = res;
+          renderAssignments(res.assignments || []);
+        })
+        .getScoutBootstrap(scoutId);
+    }
+
+    // -------------------------
+    // Utilities
+    // -------------------------
+    function uuidv4(){
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function escapeAttr(s){
+      return escapeHtml(s).replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
