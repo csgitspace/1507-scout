@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
 import { createHandler } from './api.js';
 import { createSync } from './sync.js';
+import { createTokenSource } from './google-auth.js';
 
 const PORT = Number(process.env.PORT) || 1507;
 const DATA = process.env.SCOUT_DATA || fileURLToPath(new URL('../data/', import.meta.url));
@@ -45,7 +46,8 @@ setInterval(backup, 10 * 60 * 1000);
 
 // ---- Dashboard sync: every 3 minutes (mentors' freshness bar is 10) ----
 const SYNC_MINUTES = Number(process.env.SYNC_MINUTES) || 3;
-const sync = createSync({ store, dashboardFile: join(DATA, 'dashboard.json') });
+const tokenSource = createTokenSource(join(DATA, 'google-auth.json'));   // from `npm run station:login`
+const sync = createSync({ store, dashboardFile: join(DATA, 'dashboard.json'), tokenSource });
 const runSync = () => sync.syncOnce().then(s => {
   if (s.lastError && s.configured) console.log(`Sync failed: ${s.lastError} (${s.pending} waiting)`);
 });

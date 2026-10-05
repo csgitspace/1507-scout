@@ -1,6 +1,33 @@
 # Milestone 3 — Sync + Mentor Dashboard
 
-## Status (2026-10-04): built and tested locally; Google deployment pending
+## Status: ✅ deployed and syncing (2026-10-05)
+
+The live scan station syncs to the deployed dashboard in the team's
+warlocks1507.com Google Workspace. **All four day-one items in `CLAUDE.md`
+now work.**
+
+**A change forced by the Workspace:** the domain blocks anonymous web apps
+and sharing outside the domain, and we don't have admin access. So:
+- The sync endpoint uses `"access": "DOMAIN"` (domain users only), not
+  anonymous access.
+- The laptop proves it's a domain user with a Google token. It gets the
+  token from a one-time `npm run station:login` through the team's own
+  **Internal** OAuth app (a Google Cloud project in warlocks1507.com).
+  Workspace trusts internal apps; it blocks outside apps like clasp from
+  Drive permissions.
+- The sync token check is still there, as a second lock.
+- Mentors sign in with **@warlocks1507.com** accounts; Google's sign-in
+  page is the login.
+- One-time owner step: open each web app URL once as the owner and
+  **Review Permissions → Allow**.
+
+**Still to check with mentors** (see "How it'll be tested" below):
+- a second mentor sees the shared note but not the private one
+- an account the Sheet isn't shared with is refused
+- "Synced N min ago" turns red after 10 minutes with the laptop off
+- the open questions on strength, fit and Support
+
+### Earlier status (2026-10-04): built and tested locally
 
 **Done and passing (`npm test`, 50 tests):**
 - The dashboard's Apps Script code runs in Node against an in-memory fake

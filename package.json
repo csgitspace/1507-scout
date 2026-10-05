@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test",
     "station": "node laptop/server.js",
+    "station:login": "node tools/google-login.js",
     "dashboard:create": "node tools/dashboard.js create",
     "dashboard:build": "node tools/dashboard.js build",
     "dashboard:push": "node tools/dashboard.js push",

@@ -322,6 +322,7 @@ function renderSync(s) {
   else { main = 'Waiting for first sync'; cls = ''; }
   const detail = [
     `${s.pending} record${s.pending === 1 ? '' : 's'} waiting`,
+    s.googleAccount ? `Google: ${s.googleAccount}` : null,
     s.lastSuccess && s.lastError ? `last good sync ${ago(s.lastSuccess)}` : null,
     !s.configured ? 'Run  npm run dashboard:push  on this laptop, or enter the sync URL + token on Event setup' : null,
   ].filter(Boolean).join(' · ');

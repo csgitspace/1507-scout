@@ -14,7 +14,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-export function createSync({ store, dashboardFile = null, fetchImpl = fetch, now = () => Date.now(), batchSize = 300 }) {
+export function createSync({ store, dashboardFile = null, tokenSource = null, fetchImpl = fetch, now = () => Date.now(), batchSize = 300 }) {
   const status = { lastAttempt: null, lastSuccess: null, lastError: null, lastAdded: 0, running: false };
 
   function config() {
@@ -31,11 +31,14 @@ export function createSync({ store, dashboardFile = null, fetchImpl = fetch, now
   }
 
   async function post(url, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    // Workspace deployments only accept domain users: prove who we are (see google-auth.js).
+    if (tokenSource && tokenSource.configured()) headers.Authorization = `Bearer ${await tokenSource.token()}`;
     let res;
     try {
       // Apps Script answers a POST with a redirect to the result; fetch follows it.
       res = await fetchImpl(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        method: 'POST', headers, body: JSON.stringify(body),
         redirect: 'follow', signal: AbortSignal.timeout(60000),
       });
     } catch (err) {
@@ -45,6 +48,12 @@ export function createSync({ store, dashboardFile = null, fetchImpl = fetch, now
     const text = await res.text();
     let json;
     try { json = JSON.parse(text); } catch {
+      if (/<title>Authorization needed/i.test(text) || res.status === 401) {
+        throw new Error('Google wants a sign-in — run  npm run station:login  (team warlocks1507.com account)');
+      }
+      if (/<title>Access Denied/i.test(text) || res.status === 403) {
+        throw new Error('Google refused access — the station must be signed in with a warlocks1507.com account (npm run station:login)');
+      }
       throw new Error(res.ok ? 'Unexpected reply from Google — check the sync URL' : `Google replied HTTP ${res.status}`);
     }
     if (!json.ok) throw new Error(json.error || 'The dashboard rejected the sync');
@@ -66,6 +75,7 @@ export function createSync({ store, dashboardFile = null, fetchImpl = fetch, now
       ...status,
       configured: !!(cfg.url && cfg.token),
       source: cfg.source,
+      googleAccount: tokenSource && tokenSource.configured() ? tokenSource.account() : null,
       dashboardUrl: cfg.dashboardUrl,
       pending: event ? store.countUnsynced(event) : 0,
     };

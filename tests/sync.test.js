@@ -99,6 +99,52 @@ test('not configured -> clear message, no request', async () => {
   assert.equal(fetchImpl.calls.length, 0);
 });
 
+test('Workspace sign-in: a Google token rides along, and Google sign-in pages become clear errors', async () => {
+  const store = station(1);
+  const tokenSource = { configured: () => true, account: () => 'scout@warlocks1507.com', token: async () => 'ya29.test' };
+  const seen = [];
+  let reply = { ok: true, accepted: [], added: 0 };
+  const fetchImpl = async (url, opts) => {
+    seen.push(opts.headers.Authorization);
+    return typeof reply === 'string'
+      ? { ok: true, status: 200, text: async () => reply }
+      : { ok: true, status: 200, text: async () => JSON.stringify({ ...reply, accepted: JSON.parse(opts.body).records.map(r => r.id) }) };
+  };
+  const sync = createSync({ store, fetchImpl, tokenSource });
+  let s = await sync.syncOnce();
+  assert.equal(seen[0], 'Bearer ya29.test');
+  assert.equal(s.googleAccount, 'scout@warlocks1507.com');
+  reply = '<html><head><title>Authorization needed</title></head></html>';
+  s = await sync.syncOnce();
+  assert.match(s.lastError, /station:login/);
+  reply = '<html><head><title>Access Denied</title></head></html>';
+  s = await sync.syncOnce();
+  assert.match(s.lastError, /warlocks1507\.com account/);
+});
+
+test('token source refreshes once and caches; a revoked sign-in says how to fix it', async () => {
+  const { createTokenSource } = await import('../laptop/google-auth.js');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'scout-auth-'));
+  const file = join(dir, 'google-auth.json');
+  writeFileSync(file, JSON.stringify({ client_id: 'c', client_secret: 's', refresh_token: 'r', email: 'a@warlocks1507.com' }));
+  let calls = 0, grant = 'ok';
+  const fetchImpl = async () => { calls++; return { status: 200, json: async () => (grant === 'ok' ? { access_token: `tok${calls}`, expires_in: 3600 } : { error: 'invalid_grant' }) }; };
+  try {
+    const src = createTokenSource(file, { fetchImpl });
+    assert.equal(src.account(), 'a@warlocks1507.com');
+    assert.equal(await src.token(), 'tok1');
+    assert.equal(await src.token(), 'tok1', 'cached');
+    assert.equal(calls, 1);
+    grant = 'revoked';
+    await assert.rejects(createTokenSource(file, { fetchImpl }).token(), /station:login/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('end to end: laptop sync -> real sync-endpoint code -> Sheet, twice, no duplicates', async () => {
   const store = station(4);
   const ss = new FakeSpreadsheet();

@@ -12,7 +12,7 @@ the rules it must not break, and the decisions made so far.
 | [scout-app/](scout-app/) | iPad web app (offline, QR output) + lead tools | Milestone 1 ✅ |
 | [shared/](shared/) | Field list + record/QR format, used by every app | ✅ |
 | [laptop/](laptop/) | Scan station: QR intake, SQLite database, coverage, iPad codes | Milestone 2 ✅ (sync: M3) |
-| [dashboard/](dashboard/) | Apps Script sync endpoint + mentor pick list | Milestone 3 (built; Google deploy pending) |
+| [dashboard/](dashboard/) | Apps Script sync endpoint + mentor pick list | Milestone 3 ✅ (deployed) |
 | [docs/](docs/) | Specs, plans, legacy audit | |
 | [legacy/](legacy/) | v3 app, reference only | |
 
@@ -54,10 +54,24 @@ laptop dies, the iPads still have every record: Lead menu → Show all QR codes.
 3. `npm.cmd run dashboard:create` creates the scouting Sheet and both Apps Script projects.
 4. `npm.cmd run dashboard:push` uploads and deploys them. It prints the **mentor dashboard URL**.
    Run it again after any change in `dashboard/` or `shared/fields.js`; the URLs stay the same.
-5. Share the Sheet with each mentor as **Editor**. Sharing the Sheet is the
-   allow-list: only people it's shared with can open the dashboard. Send them the dashboard URL.
+5. Share the Sheet with each mentor's **@warlocks1507.com** account as **Editor**. Sharing the
+   Sheet is the allow-list: only people it's shared with can open the dashboard. Send them the dashboard URL.
    The first time, Google asks each mentor to authorize it (and may say "unverified app").
    Click Advanced → Go to Warlocks 1507 Pick List.
+
+**Sign the scan station in to Google (needed because warlocks1507.com blocks anonymous web apps).**
+The laptop signs in through the team's own *Internal* OAuth app, which Workspace trusts.
+Outside apps like clasp are blocked from Drive permissions.
+1. In <https://console.cloud.google.com>, as the team account, open the project
+   (any warlocks1507.com project) and enable the **Google Drive API**.
+2. **Google Auth Platform**: app name `Warlocks 1507 Scan Station`, Audience **Internal**.
+3. **Clients → Create client → Desktop app**, then **Download JSON** and save it as
+   `data\google-oauth-client.json`.
+4. `npm.cmd run station:login` opens Google sign-in. Sign in with a warlocks1507.com account.
+   The sign-in is saved in `data\google-auth.json` (never committed).
+
+Mentors open the dashboard with their **@warlocks1507.com** accounts. Google's own
+sign-in page is the login.
 
 The scan station picks up the sync URL and token from `data/dashboard.json`
 automatically and syncs every 3 minutes over the tethered phone. Its Scan tab
