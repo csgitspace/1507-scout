@@ -8,8 +8,11 @@ var TAB = {
   SUMMARY: 'Summary',       // one row per team, rebuilt on every sync
   TEAMS: 'Teams',           // from the laptop's TBA import
   MATCHES: 'Matches',       // schedule, from the laptop
-  MENTOR: 'Mentor',         // rank / tag / shared note — written only by the dashboard
-  PRIVATE: 'MentorPrivate', // private notes per mentor — written only by the dashboard
+  // (Tab names say "Mentor" for history; they hold the pick team's data — mentors and student leads.)
+  MENTOR: 'Mentor',         // OFFICIAL rank / tag / shared note — written only by the dashboard, only for pick leads
+  PRIVATE: 'MentorPrivate', // private notes per person — written only by the dashboard
+  MYPICKS: 'MyPicks',       // each person's own practice pick list (rank / tag) — never affects the official list
+  LEADS: 'Leads',           // emails allowed to change the official list — edited by the team account only
   CONFIG: 'Config',         // key / value: last sync, event, our robot's gaps, data health
   EXTERNAL: 'External',     // per team: Statbotics EPA, TBA OPR + rank — reference data, never scouting data
   RESULTS: 'Results',       // per played match: TBA scores
@@ -17,6 +20,8 @@ var TAB = {
 
 var MENTOR_HEADERS = ['team', 'rank', 'tag', 'shared_note', 'shared_note_by', 'shared_note_at', 'updated_by', 'updated_at'];
 var PRIVATE_HEADERS = ['email', 'team', 'note', 'updated_at'];
+var MYPICKS_HEADERS = ['email', 'team', 'rank', 'tag', 'updated_at'];
+var LEADS_HEADERS = ['email', 'name', 'role'];
 var EXTERNAL_COLUMNS = ['team', 'epa', 'epa_auto', 'epa_teleop', 'epa_endgame', 'epa_fuel', 'epa_tower', 'epa_source',
   'opr', 'rank', 'record', 'rp_avg'];
 var RESULTS_COLUMNS = ['match_key', 'match', 'red1', 'red2', 'red3', 'blue1', 'blue2', 'blue3', 'red_score', 'blue_score', 'winner', 'played_at'];

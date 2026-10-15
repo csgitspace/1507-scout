@@ -2,7 +2,7 @@
 
 ## Who it's for, and what it's for
 
-Mentors (and eventually students) open this on their own devices, on their
+The pick team (mentors and student leads) opens this on their own devices, on their
 own cellular data or Wi-Fi — never on a team-run network. It is a read
 layer over the scouting data, plus a separate annotation layer mentors can
 write to.
@@ -36,6 +36,11 @@ conversation — ask Chris for the link.
 
 **Sync indicator:** "Synced [N] min ago," visually flagged once it passes
 the 10-minute staleness bar.
+
+**Official list vs My list** (`docs/plans/m5-pick-roles.md`): only pick leads
+(the Sheet's `Leads` tab) change the official rank, tags, shared notes and
+"Our robot needs". Everyone else gets a personal **My list** to experiment
+in, so the official list never gets dirtied.
 
 **Fit computation:** needs our own robot's current gaps/weaknesses defined
 by mentors as an input (not scouted data) — pending from the open

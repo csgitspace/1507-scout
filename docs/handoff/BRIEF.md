@@ -56,7 +56,7 @@ back.
 |---|---|---|---|
 | **Scout app** | iPads (installed from Safari to the Home Screen) | Scouts; the scouting lead uses its PIN-locked Lead menu | Record a match offline, show it as a QR code |
 | **Scan station** | Scouting laptop (Windows), in a browser at `http://localhost:1507` | Scouting lead / scan-station operator | Scan QR codes, catch missing scans, set up iPads, import the schedule, sync to the dashboard |
-| **Mentor dashboard (pick list)** | Any phone or computer; a Google web app | Mentors (signed in with **@warlocks1507.com** accounts) | Filter, rank, tag and annotate teams for alliance selection |
+| **Pick-team dashboard (pick list)** | Any phone or computer; a Google web app | Mentors and student leads (signed in with **@warlocks1507.com** accounts); pick leads set the official list | Filter, rank, tag and annotate teams for alliance selection |
 | **Lead tools page** | Any browser (backup) | Scouting lead | A backup way to make iPad setup codes if the laptop isn't available |
 
 Data flows one way: **iPad → (QR code) → scan station → (cellular, every 3 min) → Google Sheet → mentor dashboard.**
@@ -66,7 +66,9 @@ Data flows one way: **iPad → (QR code) → scan station → (cellular, every 3
    one-page quick card. One-handed, about 2 minutes per match.
 2. **Scouting lead:** sets up iPads, runs the scan station, chases missing
    scans, fixes problems. Needs an event-day runbook and troubleshooting.
-3. **Mentor:** uses the pick list on a phone. Needs a short guide.
+3. **Pick team (mentors and student leads):** uses the pick list on a
+   phone. Pick leads set the official list; everyone else can build their
+   own My list. Needs a short guide.
 4. **Student maintainer:** changes fields for the next game, deploys
    updates. Needs a technical guide (section 9).
 5. **Audiences for presentations:** the team (students learning the
@@ -234,15 +236,29 @@ the station. **After updating the code, restart the station.**
 
 ---
 
-## 6. Mentor dashboard (pick list)
+## 6. Pick-team dashboard (pick list), for mentors and student leads
 
-Screenshot: `dashboard-pick-list-phone.png` (phone width, sample data).
+Screenshot: `dashboard-pick-list-phone.png` (phone width, sample data). It
+predates the Official list / My list switch described below.
 
 - **Access:** open the link and sign in with your **@warlocks1507.com**
   Google account. The scouting Sheet must be shared with you as **Editor**
   (that sharing *is* the access list). The first visit asks you to
   **authorize** the app once; it may say "unverified". That's normal for
   the team's own script.
+- **Two roles, two lists** (switch at the top: **Official list** / **My list**):
+  - **Pick leads** (mentors or student leaders whose emails the team
+    account put on the Sheet's **Leads** tab) change the **official list**:
+    pick order, tags, shared notes, and "Our robot needs".
+  - Everyone else sees the official list **read-only** (the tag buttons are
+    greyed out and the shared note can't be edited). Their role line says
+    **Viewer**.
+  - **My list** is anyone's own practice list: their own order and
+    Target/Backup/Avoid tags, which only they see. **Start from the
+    official list** copies the official list in; **Clear my list** empties
+    it. Cards there show an **Official: #3 Target** badge for comparison.
+  - If no pick leads are listed yet, everyone can edit the official list,
+    and the page shows a warning.
 - **Header:** event name, team count and **"Synced N min ago"**. It turns
   **red with "STALE"** after 10 minutes without a sync.
 - **Our robot needs** (DRAFT): tap the gaps in our own robot (More
@@ -251,8 +267,9 @@ Screenshot: `dashboard-pick-list-phone.png` (phone width, sample data).
 - **Filters:** Scoring (High/Mid/Low), Bot type (Scorer/Feeder/Defense/
   Hybrid), Strength (draft), Fit, Tag (Target/Backup/Avoid/Untagged).
 - **Each team card:**
-  - **Pick rank:** drag ⠿ or use ▲▼. It saves for everyone, and
-    reordering is disabled while filters are on.
+  - **Pick rank:** drag ⠿ or use ▲▼. On the official list (pick leads
+    only) it saves for everyone; on My list it saves just for you.
+    Reordering is disabled while filters are on.
   - Team number and name.
   - Badges: **Scoring High/Mid/Low**, bot type, **Strength … (draft)**,
     **Fit … : reason** (e.g. "Fit High: L3 80%, defends 40%").
@@ -260,7 +277,8 @@ Screenshot: `dashboard-pick-list-phone.png` (phone width, sample data).
     matches scouted, and ⚠ reliability problems (no-show, broke, dead auto).
   - **Target / Backup / Avoid** tag buttons (the card edge turns
     green/blue/red).
-  - A **Shared note** (all mentors see it, stamped "by name").
+  - A **Shared note** (the whole pick team sees it, stamped "by name";
+    only pick leads can edit it).
   - A **My private note** (only you see it in the dashboard).
   - **Scout notes (N)** expands the scouts' match notes.
 - Team 1507 (us) is not shown, since we can't pick ourselves.
@@ -277,11 +295,13 @@ Screenshot: `dashboard-pick-list-phone.png` (phone width, sample data).
 - Averages skip no-show matches. Two scouts on the same robot in the same
   match are averaged into one observation. Accuracy includes auto misses.
 
-**Caveats to state in any mentor guide:**
+**Caveats to state in any pick-team guide:**
 - "Strength" and "Fit" are **drafts** pending a team decision on what they
   should mean.
-- Private notes are hidden from other mentors in the dashboard, but anyone
-  with access to the Google Sheet could see that tab.
+- Private notes and My lists are hidden from others in the dashboard, but
+  anyone with access to the Google Sheet could see those tabs.
+- The dashboard enforces the pick-lead role, but someone with Editor access
+  could still change the official list directly in the Google Sheet.
 
 ---
 

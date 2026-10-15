@@ -93,6 +93,19 @@
     .pill { font-size: .82rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--card2); border: 1px solid var(--line); }
     .pill.bad { border-color: #6b1d26; color: #ff9a9a; } .pill.warn { border-color: #6b5a1d; color: #ffd76a; }
     .big-stat { font-size: 1.15rem; font-weight: 900; margin: 0 0 8px; }
+    /* Official list vs My list */
+    .seg { display: flex; gap: 6px; margin-bottom: 8px; }
+    .seg button { flex: 1; min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); font-weight: 800; }
+    .seg button.on { background: var(--gold); color: #000; border-color: var(--gold); }
+    .role { font-size: .88rem; color: var(--muted); }
+    .role b { color: var(--text); }
+    .role.warn { color: #ffd76a; }
+    .mode-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .mode-actions[hidden] { display: none; }
+    .mode-actions button { border-radius: 8px; border: 1px solid var(--line); background: var(--card2); padding: 7px 12px; font-weight: 700; font-size: .85rem; }
+    .chip.locked, .tag:disabled { opacity: .55; cursor: not-allowed; }
+    .readonly-note { font-size: .9rem; background: var(--card2); border: 1px dashed var(--line); border-radius: 8px; padding: 8px; min-height: 20px; overflow-wrap: anywhere; }
+    .card.mine-view { border-style: dashed; border-left-style: solid; }
   </style>
 </head>
 <body>
@@ -109,6 +122,17 @@
   </header>
   <main>
     <section id="v-pick">
+      <div class="panel">
+        <div class="seg">
+          <button id="mode-official" data-mode="official">Official list</button>
+          <button id="mode-mine" data-mode="mine">My list</button>
+        </div>
+        <div class="role" id="role"></div>
+        <div class="mode-actions" id="mode-actions" hidden>
+          <button id="mine-copy">Start from the official list</button>
+          <button id="mine-clear">Clear my list</button>
+        </div>
+      </div>
       <div class="panel">
         <h3>Our robot needs <span class="draft">DRAFT fit</span></h3>
         <div class="chips" id="gaps"></div>
@@ -184,9 +208,11 @@
 
   // ---------- gaps ----------
   function renderGaps() {
+    var lead = data.role && data.role.lead;
     $('gaps').replaceChildren.apply($('gaps'), data.gapDefs.map(function (g) {
       var on = data.gaps.indexOf(g.id) >= 0;
-      return h('button', { class: 'chip' + (on ? ' on' : ''), onclick: function () {
+      return h('button', { class: 'chip' + (on ? ' on' : '') + (lead ? '' : ' locked'), onclick: function () {
+        if (!lead) { toast('Only pick leads set what our robot needs (it changes everyone\'s Fit).', true); return; }
         data.gaps = on ? data.gaps.filter(function (x) { return x !== g.id; }) : data.gaps.concat([g.id]);
         call('saveGaps', data.gaps).then(function () { load(); }).catch(function (e) { toast(e.message, true); });
         renderGaps();
@@ -204,12 +230,72 @@
       return asc ? a[key] - b[key] : b[key] - a[key];
     };
   }
+  // ---------- Official list vs My list ----------
+  // Official: the pick leads' list (everyone sees it; only leads change it).
+  // Mine: this person's own practice order + tags, saved for them only.
+  var mode = 'official';
+  try { mode = localStorage.getItem('pickMode') === 'mine' ? 'mine' : 'official'; } catch (e) { /* storage blocked */ }
+  function mine() { return mode === 'mine'; }
+  function rankOf(t) { return mine() ? t.my_rank : t.rank; }
+  function tagOf(t) { return mine() ? t.my_tag : t.tag; }
+  function canEdit() { return mine() || !!(data.role && data.role.lead); }
+
+  /** Teams in the current list's order: official order, or my ranks first, then the rest in official order. */
+  function ordered() {
+    if (!mine()) return data.teams.slice();
+    var pos = {};
+    data.teams.forEach(function (t, i) { pos[t.team] = i; });
+    return data.teams.slice().sort(function (a, b) {
+      var ra = a.my_rank, rb = b.my_rank;
+      if (ra !== null && rb !== null) return ra - rb;
+      if (ra !== null) return -1;
+      if (rb !== null) return 1;
+      return pos[a.team] - pos[b.team];
+    });
+  }
+
+  function renderMode() {
+    $('mode-official').classList.toggle('on', !mine());
+    $('mode-mine').classList.toggle('on', mine());
+    $('mode-actions').hidden = !mine();
+    var r = data.role || {};
+    var who = r.lead ? (r.open ? 'Everyone can edit' : 'You\'re a pick lead') : 'Viewer';
+    var text = mine()
+      ? [h('b', null, 'My list'), ' — your own practice order and tags. Only you see it; it never changes the official list.']
+      : r.lead
+        ? [h('b', null, who), ' — changes to order, tags and shared notes save for the whole pick team.']
+        : [h('b', null, who), ' — the official list is set by the pick leads. Switch to ', h('b', null, 'My list'), ' to try your own.'];
+    $('role').replaceChildren.apply($('role'), text);
+    $('role').className = 'role' + (r.open && !mine() ? ' warn' : '');
+    if (r.open && !mine()) {
+      $('role').append(h('div', { style: 'margin-top:4px' }, '⚠ No pick leads are listed yet, so anyone can change the official list. ' +
+        'The team account can add pick leads\' emails on the Leads tab of the scouting Sheet.'));
+    }
+  }
+  ['mode-official', 'mode-mine'].forEach(function (id) {
+    $(id).addEventListener('click', function () {
+      mode = $(id).dataset.mode;
+      try { localStorage.setItem('pickMode', mode); } catch (e) { /* storage blocked */ }
+      renderMode(); render();
+    });
+  });
+  $('mine-copy').addEventListener('click', function () {
+    if (data.teams.some(function (t) { return t.my_rank !== null || t.my_tag; }) &&
+        !confirm('Replace your list with a copy of the official order and tags?')) return;
+    call('copyOfficialToMine').then(function () { toast('Copied the official list'); return load(); }).catch(function (e) { toast(e.message, true); });
+  });
+  $('mine-clear').addEventListener('click', function () {
+    if (!confirm('Clear your list? (The official list is not affected.)')) return;
+    call('clearMyList').then(function () { toast('Your list is cleared'); return load(); }).catch(function (e) { toast(e.message, true); });
+  });
+
   function filtered() {
     var f = { scoring: $('f-scoring').value, type: $('f-type').value, strength: $('f-strength').value, fit: $('f-fit').value, tag: $('f-tag').value };
-    var list = data.teams.filter(function (t) {
+    var list = ordered().filter(function (t) {
+      var tag = tagOf(t);
       return (!f.scoring || t.scoring_level === f.scoring) && (!f.type || t.bot_type === f.type) &&
         (!f.strength || t.strength === f.strength) && (!f.fit || t.fit === f.fit) &&
-        (!f.tag || (f.tag === 'none' ? !t.tag : t.tag === f.tag));
+        (!f.tag || (f.tag === 'none' ? !tag : tag === f.tag));
     });
     var sort = $('f-sort').value;
     if (sort === 'epa') list.sort(byNumber('epa'));
@@ -252,7 +338,10 @@
 
   function noteBox(label, value, meta, save) {
     var status = h('span', null, meta || '');
-    var area = h('textarea', { rows: '2', maxlength: '1000', placeholder: label === 'Shared note' ? 'Visible to all mentors' : 'Only you see this' });
+    if (!save) {   // read-only (shared note, for someone who isn't a pick lead)
+      return [h('div', { class: 'note-label' }, h('span', null, label), status), h('div', { class: 'readonly-note' }, value || '—')];
+    }
+    var area = h('textarea', { rows: '2', maxlength: '1000', placeholder: label === 'Shared note' ? 'Visible to the whole pick team' : 'Only you see this' });
     area.value = value || '';
     var last = area.value;
     area.addEventListener('focus', function () { editing = true; });
@@ -270,12 +359,15 @@
   }
 
   function card(t, i, canDrag) {
-    var el = h('div', { class: 'card ' + (t.tag || ''), 'data-team': t.team });
+    var cur = tagOf(t), rank = rankOf(t), lead = !!(data.role && data.role.lead);
+    var el = h('div', { class: 'card ' + (cur || '') + (mine() ? ' mine-view' : ''), 'data-team': t.team });
     var tagBtns = ['Target', 'Backup', 'Avoid'].map(function (tag) {
-      return h('button', { class: 'tag ' + tag + (t.tag === tag ? ' on' : ''), onclick: function () {
-        var newTag = t.tag === tag ? '' : tag;
-        call('saveTag', t.team, newTag).then(function () { t.tag = newTag; render(); }).catch(function (e) { toast(e.message, true); });
-      } }, tag);
+      return h('button', { class: 'tag ' + tag + (cur === tag ? ' on' : ''), disabled: !canEdit(),
+        title: canEdit() ? null : 'Only pick leads tag the official list — use My list', onclick: function () {
+          var newTag = cur === tag ? '' : tag;
+          var fn = mine() ? 'saveMyTag' : 'saveTag', field = mine() ? 'my_tag' : 'tag';
+          call(fn, t.team, newTag).then(function () { t[field] = newTag; render(); }).catch(function (e) { toast(e.message, true); });
+        } }, tag);
     });
     var sharedMeta = t.shared_note_by ? 'by ' + t.shared_note_by.split('@')[0] : '';
 
@@ -283,7 +375,7 @@
     if (handle) attachDrag(handle, el);
     el.append(
       h('div', { class: 'rankcol' },
-        h('div', { class: 'rank' }, t.rank ? String(t.rank) : '–'),
+        h('div', { class: 'rank' }, rank ? String(rank) : '–'),
         handle,
         canDrag ? h('button', { class: 'mv', 'aria-label': 'Move up', onclick: function () { move(t.team, -1); } }, '▲') : null,
         canDrag ? h('button', { class: 'mv', 'aria-label': 'Move down', onclick: function () { move(t.team, 1); } }, '▼') : null),
@@ -293,11 +385,12 @@
           t.scoring_level ? h('span', { class: 'badge ' + t.scoring_level }, 'Scoring ' + t.scoring_level) : null,
           t.bot_type ? h('span', { class: 'badge' }, t.bot_type) : null,
           t.strength ? h('span', { class: 'badge ' + t.strength }, 'Strength ' + t.strength + ' (draft)') : null,
-          t.fit ? h('span', { class: 'badge ' + t.fit }, 'Fit ' + t.fit + ': ' + t.fit_reason) : h('span', { class: 'badge' }, 'Fit: ' + t.fit_reason)),
+          t.fit ? h('span', { class: 'badge ' + t.fit }, 'Fit ' + t.fit + ': ' + t.fit_reason) : h('span', { class: 'badge' }, 'Fit: ' + t.fit_reason),
+          mine() && (t.rank || t.tag) ? h('span', { class: 'badge' }, 'Official: ' + [t.rank ? '#' + t.rank : '', t.tag].filter(Boolean).join(' ')) : null),
         statsLine(t),
         extLine(t),
         h('div', { class: 'tags' }, tagBtns),
-        noteBox('Shared note', t.shared_note, sharedMeta, function (v) { return call('saveSharedNote', t.team, v); }),
+        noteBox('Shared note', t.shared_note, sharedMeta, lead ? function (v) { return call('saveSharedNote', t.team, v); } : null),
         noteBox('My private note', t.private_note, '', function (v) { return call('savePrivateNote', t.team, v); }),
         t.notes && t.notes.length ? h('details', null, h('summary', null, 'Scout notes (' + t.notes.length + ')'),
           t.notes.slice().reverse().map(function (n) { return h('div', { class: 'scout-note' }, n.match + ': ' + n.text); })) : null));
@@ -307,22 +400,30 @@
   function render() {
     if (!data) return;
     var list = filtered();
-    var canDrag = !anyFilter();
-    $('hint').textContent = canDrag ? 'Drag ⠿ (or use ▲▼) to set the pick order. Changes save for everyone.'
-      : 'Showing ' + list.length + ' of ' + data.teams.length + ' teams. Clear the filters to reorder.';
+    var canDrag = !anyFilter() && canEdit();
+    $('hint').textContent = anyFilter() ? 'Showing ' + list.length + ' of ' + data.teams.length + ' teams. Clear the filters and sort to reorder.'
+      : !canEdit() ? 'The official pick order, set by the pick leads.'
+        : mine() ? 'Drag ⠿ (or use ▲▼) to set your own order. Only you see it.'
+          : 'Drag ⠿ (or use ▲▼) to set the official pick order. Changes save for the whole pick team.';
     $('list').replaceChildren.apply($('list'), list.length ? list.map(function (t, i) { return card(t, i, canDrag); })
       : [h('div', { class: 'msg' }, data.teams.length ? 'No teams match these filters.' : 'No scouting data yet — waiting for the first sync.')]);
   }
 
   // ---------- reordering ----------
   function saveOrder(order) {
+    if (mine()) {
+      data.teams.forEach(function (t) { var i = order.indexOf(t.team); t.my_rank = i >= 0 ? i + 1 : null; });
+      render();
+      call('saveMyRanking', order).then(function () { toast('Your order saved'); }).catch(function (e) { toast(e.message, true); load(); });
+      return;
+    }
     data.teams.sort(function (a, b) { return order.indexOf(a.team) - order.indexOf(b.team); });
     data.teams.forEach(function (t, i) { t.rank = i + 1; });
     render();
-    call('saveRanking', order).then(function () { toast('Pick order saved'); }).catch(function (e) { toast(e.message, true); load(); });
+    call('saveRanking', order).then(function () { toast('Official pick order saved'); }).catch(function (e) { toast(e.message, true); load(); });
   }
   function move(team, delta) {
-    var order = data.teams.map(function (t) { return t.team; });
+    var order = ordered().map(function (t) { return t.team; });
     var i = order.indexOf(team), j = i + delta;
     if (j < 0 || j >= order.length) return;
     order.splice(j, 0, order.splice(i, 1)[0]);
@@ -363,8 +464,8 @@
       d.loadedAt = Date.now();
       data = d;
       $('event').textContent = (d.eventName || d.event || 'No event yet') + ' · ' + d.teams.length + ' teams';
-      $('me').textContent = 'Signed in as ' + d.me;
-      renderSync(); renderGaps(); render();
+      $('me').textContent = 'Signed in as ' + d.me + (d.role && d.role.lead && !d.role.open ? ' · pick lead' : d.role && !d.role.lead ? ' · viewer' : '');
+      renderSync(); renderMode(); renderGaps(); render();
     }).catch(function (e) {
       $('list').replaceChildren(h('div', { class: 'msg error' }, e.message));
     });
@@ -406,7 +507,7 @@
         t.scoring_level ? h('span', { class: 'badge ' + t.scoring_level }, 'Scoring ' + t.scoring_level) : null),
       statsLine(t),
       extLine(t),
-      t.shared_note ? h('div', { class: 'scout-note', style: 'border-left-color:var(--gold)' }, 'Mentors: ' + t.shared_note) : null,
+      t.shared_note ? h('div', { class: 'scout-note', style: 'border-left-color:var(--gold)' }, 'Pick team: ' + t.shared_note) : null,
       (t.notes || []).slice().reverse().map(function (n) { return h('div', { class: 'scout-note' }, n.match + ': ' + n.text); }));
   }
   function allianceBox(color, side, d) {
