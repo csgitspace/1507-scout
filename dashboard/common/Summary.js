@@ -217,6 +217,14 @@ function fitFor(t, gapIds) {
   };
 }
 
+/** A team on the event list that hasn't been scouted yet (so EPA can show from match 1). */
+function blankSummary_(team, name) {
+  var t = {};
+  SUMMARY_COLUMNS.forEach(function (c) { t[c] = ''; });
+  t.team = Number(team); t.name = name || ''; t.matches = 0; t.records = 0; t.notes = [];
+  return t;
+}
+
 /** Summary object -> sheet row, and back. */
 function summaryToRow_(t) {
   return SUMMARY_COLUMNS.map(function (c) { return c === 'notes_json' ? JSON.stringify(t.notes || []) : t[c]; });
@@ -231,5 +239,6 @@ function rowToSummary_(row) {
 
 if (typeof module !== 'undefined') {
   module.exports = { DRAFT: DRAFT, SUMMARY_COLUMNS: SUMMARY_COLUMNS, currentRecords_: currentRecords_,
-    summarizeTeams: summarizeTeams, fitFor: fitFor, summaryToRow_: summaryToRow_, rowToSummary_: rowToSummary_, matchLabel_: matchLabel_ };
+    summarizeTeams: summarizeTeams, fitFor: fitFor, summaryToRow_: summaryToRow_, rowToSummary_: rowToSummary_, matchLabel_: matchLabel_,
+    blankSummary_: blankSummary_, matchSortKey_: matchSortKey_ };
 }

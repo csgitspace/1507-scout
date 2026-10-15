@@ -10,11 +10,16 @@ var TAB = {
   MATCHES: 'Matches',       // schedule, from the laptop
   MENTOR: 'Mentor',         // rank / tag / shared note — written only by the dashboard
   PRIVATE: 'MentorPrivate', // private notes per mentor — written only by the dashboard
-  CONFIG: 'Config',         // key / value: last sync, event, our robot's gaps
+  CONFIG: 'Config',         // key / value: last sync, event, our robot's gaps, data health
+  EXTERNAL: 'External',     // per team: Statbotics EPA, TBA OPR + rank — reference data, never scouting data
+  RESULTS: 'Results',       // per played match: TBA scores
 };
 
 var MENTOR_HEADERS = ['team', 'rank', 'tag', 'shared_note', 'shared_note_by', 'shared_note_at', 'updated_by', 'updated_at'];
 var PRIVATE_HEADERS = ['email', 'team', 'note', 'updated_at'];
+var EXTERNAL_COLUMNS = ['team', 'epa', 'epa_auto', 'epa_teleop', 'epa_endgame', 'epa_fuel', 'epa_tower', 'epa_source',
+  'opr', 'rank', 'record', 'rp_avg'];
+var RESULTS_COLUMNS = ['match_key', 'match', 'red1', 'red2', 'red3', 'blue1', 'blue2', 'blue3', 'red_score', 'blue_score', 'winner', 'played_at'];
 
 /**
  * Text typed by people (scout notes, mentor notes, names) must never become a

@@ -18,6 +18,8 @@ import { openDb } from './db.js';
 import { createHandler } from './api.js';
 import { createSync } from './sync.js';
 import { createTokenSource } from './google-auth.js';
+import { createIntel, externalFor, latestPlayed } from './intel.js';
+import { health } from './coverage.js';
 
 const PORT = Number(process.env.PORT) || 1507;
 const DATA = process.env.SCOUT_DATA || fileURLToPath(new URL('../data/', import.meta.url));
@@ -45,16 +47,28 @@ function backup() {
 setInterval(backup, 10 * 60 * 1000);
 
 // ---- Dashboard sync: every 3 minutes (mentors' freshness bar is 10) ----
+// Each run first fetches TBA results (and Statbotics EPA when due), so the
+// dashboard gets them in the same push. A failed fetch never blocks the sync.
 const SYNC_MINUTES = Number(process.env.SYNC_MINUTES) || 3;
 const tokenSource = createTokenSource(join(DATA, 'google-auth.json'));   // from `npm run station:login`
-const sync = createSync({ store, dashboardFile: join(DATA, 'dashboard.json'), tokenSource });
-const runSync = () => sync.syncOnce().then(s => {
-  if (s.lastError && s.configured) console.log(`Sync failed: ${s.lastError} (${s.pending} waiting)`);
+const intel = createIntel({ store });
+const sync = createSync({
+  store, dashboardFile: join(DATA, 'dashboard.json'), tokenSource,
+  intelFor: (ev) => externalFor(store, ev),
+  healthFor: (ev) => health(store.schedule(ev), store.currentRecords(ev), {
+    playedThrough: store.getSetting(`playedThrough:${ev}`), resultsThrough: latestPlayed(store, ev),
+    roster: store.getSetting('roster', []),
+  }),
 });
+const runSync = async () => {
+  try { await intel.refreshDue(); } catch (err) { console.error('Event data fetch failed:', err.message); }
+  const s = await sync.syncOnce();
+  if (s.lastError && s.configured) console.log(`Sync failed: ${s.lastError} (${s.pending} waiting)`);
+};
 setTimeout(runSync, 15 * 1000);
 setInterval(runSync, SYNC_MINUTES * 60 * 1000);
 
-const server = createServer(createHandler({ store, sync }));
+const server = createServer(createHandler({ store, sync, intel }));
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`Port ${PORT} is busy — is the scan station already running? Close it or set PORT.`);

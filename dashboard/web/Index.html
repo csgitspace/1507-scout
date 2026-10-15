@@ -64,6 +64,35 @@
     #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #222244; border: 1px solid var(--line);
              padding: 10px 16px; border-radius: 10px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 92vw; }
     #toast.show { opacity: 1; } #toast.bad { border-color: var(--bad); background: #3a0d14; }
+    nav.views { display: flex; gap: 6px; margin-top: 10px; }
+    nav.views button { flex: 1; min-height: 38px; border-radius: 8px; border: 1px solid #2b2b8a; background: rgba(0,0,0,.25); color: #bcdcff; font-weight: 800; font-size: .9rem; }
+    nav.views button.on { background: var(--gold); color: #000; border-color: var(--gold); }
+    .ext { color: #bcdcff; font-size: .88rem; margin-top: 3px; }
+    .ext b { color: var(--text); }
+    .unscouted { color: var(--muted); font-style: italic; font-size: .88rem; }
+    /* Next match */
+    .match-pick { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .match-pick select { flex: 1; }
+    .alliances { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .alliance { border-radius: 14px; padding: 10px; border: 2px solid var(--line); background: var(--card); }
+    .alliance.red { border-color: #8a1d2a; } .alliance.blue { border-color: #1d3f8a; }
+    .alliance.ours { box-shadow: 0 0 0 2px var(--gold); }
+    .alliance h2 { margin: 0 0 4px; font-size: 1.1rem; }
+    .alliance.red h2 { color: #ff7a8a; } .alliance.blue h2 { color: #7ab0ff; }
+    .totals { color: var(--muted); font-size: .85rem; margin-bottom: 8px; }
+    .totals b { color: var(--text); font-size: 1rem; }
+    .mini { border-top: 1px solid var(--line); padding: 8px 0; }
+    .mini.us .team { color: var(--gold); }
+    .mini .team { font-size: 1.25rem; }
+    .result-line { text-align: center; font-weight: 900; font-size: 1.1rem; margin: 0 0 12px; }
+    /* Data health */
+    .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: .92rem; }
+    .kv .k { color: var(--muted); }
+    .good { color: var(--good); } .bad { color: var(--bad); }
+    .pill-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill { font-size: .82rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--card2); border: 1px solid var(--line); }
+    .pill.bad { border-color: #6b1d26; color: #ff9a9a; } .pill.warn { border-color: #6b5a1d; color: #ffd76a; }
+    .big-stat { font-size: 1.15rem; font-weight: 900; margin: 0 0 8px; }
   </style>
 </head>
 <body>
@@ -72,23 +101,33 @@
       <div><div class="brand">⚡ WARLOCKS 1507 PICK LIST</div><div class="sub" id="event">Loading…</div></div>
       <span class="sync" id="sync">—</span>
     </div>
+    <nav class="views">
+      <button data-view="pick" class="on">Pick list</button>
+      <button data-view="next">Next match</button>
+      <button data-view="health">Data health</button>
+    </nav>
   </header>
   <main>
-    <div class="panel">
-      <h3>Our robot needs <span class="draft">DRAFT fit</span></h3>
-      <div class="chips" id="gaps"></div>
-    </div>
-    <div class="panel">
-      <div class="filters">
-        <label>Scoring<select id="f-scoring"><option value="">All</option><option>High</option><option>Mid</option><option>Low</option></select></label>
-        <label>Bot type<select id="f-type"><option value="">All</option><option>Scorer</option><option>Feeder</option><option>Defense</option><option>Hybrid</option></select></label>
-        <label>Strength (draft)<select id="f-strength"><option value="">All</option><option>High</option><option>Mid</option><option>Low</option></select></label>
-        <label>Fit<select id="f-fit"><option value="">All</option><option>High</option><option>Mid</option><option>Low</option></select></label>
-        <label>Tag<select id="f-tag"><option value="">All</option><option>Target</option><option>Backup</option><option>Avoid</option><option value="none">Untagged</option></select></label>
+    <section id="v-pick">
+      <div class="panel">
+        <h3>Our robot needs <span class="draft">DRAFT fit</span></h3>
+        <div class="chips" id="gaps"></div>
       </div>
-    </div>
-    <p class="hint" id="hint"></p>
-    <div id="list"><div class="msg">Loading pick list…</div></div>
+      <div class="panel">
+        <div class="filters">
+          <label>Scoring<select id="f-scoring"><option value="">All</option><option>High</option><option>Mid</option><option>Low</option></select></label>
+          <label>Bot type<select id="f-type"><option value="">All</option><option>Scorer</option><option>Feeder</option><option>Defense</option><option>Hybrid</option></select></label>
+          <label>Strength (draft)<select id="f-strength"><option value="">All</option><option>High</option><option>Mid</option><option>Low</option></select></label>
+          <label>Fit<select id="f-fit"><option value="">All</option><option>High</option><option>Mid</option><option>Low</option></select></label>
+          <label>Tag<select id="f-tag"><option value="">All</option><option>Target</option><option>Backup</option><option>Avoid</option><option value="none">Untagged</option></select></label>
+          <label>Sort<select id="f-sort"><option value="">Pick order</option><option value="epa">EPA</option><option value="fuel">Scouted fuel</option><option value="tba">TBA rank</option></select></label>
+        </div>
+      </div>
+      <p class="hint" id="hint"></p>
+      <div id="list"><div class="msg">Loading pick list…</div></div>
+    </section>
+    <section id="v-next" hidden><div class="msg">Loading…</div></section>
+    <section id="v-health" hidden><div class="msg">Loading…</div></section>
     <p class="hint" id="me"></p>
   </main>
   <div id="toast"></div>
@@ -156,16 +195,59 @@
   }
 
   // ---------- list ----------
+  var FILTER_IDS = ['f-scoring', 'f-type', 'f-strength', 'f-fit', 'f-tag', 'f-sort'];
+  function has(x) { return x !== '' && x !== null && x !== undefined; }
+  /** Sort descending by a number; teams without one go last. */
+  function byNumber(key, asc) {
+    return function (a, b) {
+      if (!has(a[key]) || !has(b[key])) return has(a[key]) ? -1 : has(b[key]) ? 1 : a.team - b.team;
+      return asc ? a[key] - b[key] : b[key] - a[key];
+    };
+  }
   function filtered() {
     var f = { scoring: $('f-scoring').value, type: $('f-type').value, strength: $('f-strength').value, fit: $('f-fit').value, tag: $('f-tag').value };
-    return data.teams.filter(function (t) {
+    var list = data.teams.filter(function (t) {
       return (!f.scoring || t.scoring_level === f.scoring) && (!f.type || t.bot_type === f.type) &&
         (!f.strength || t.strength === f.strength) && (!f.fit || t.fit === f.fit) &&
         (!f.tag || (f.tag === 'none' ? !t.tag : t.tag === f.tag));
     });
+    var sort = $('f-sort').value;
+    if (sort === 'epa') list.sort(byNumber('epa'));
+    else if (sort === 'fuel') list.sort(function (a, b) { return byNumber('avg_total')(a.matches ? a : {}, b.matches ? b : {}) || a.team - b.team; });
+    else if (sort === 'tba') list.sort(byNumber('rank_tba', true));
+    return list;
   }
   function anyFilter() {
-    return ['f-scoring', 'f-type', 'f-strength', 'f-fit', 'f-tag'].some(function (id) { return $(id).value; });
+    return FILTER_IDS.some(function (id) { return $(id).value; });
+  }
+
+  /** "EPA 42.1 (auto 10 · tele 25 · end 7) · OPR 38 · TBA #3 (8–2–0)" — outside data, shown apart from scouting. */
+  function extLine(t) {
+    var parts = [];
+    if (has(t.epa)) {
+      var bd = [has(t.epa_auto) ? 'auto ' + t.epa_auto : null, has(t.epa_teleop) ? 'tele ' + t.epa_teleop : null,
+        has(t.epa_endgame) ? 'end ' + t.epa_endgame : null].filter(Boolean).join(' · ');
+      parts.push(h('span', null, (t.epa_source === 'season' ? 'Season EPA ' : 'EPA '), h('b', null, String(t.epa)), bd ? ' (' + bd + ')' : ''));
+    }
+    if (has(t.opr)) parts.push(h('span', null, 'OPR ', h('b', null, String(t.opr))));
+    if (has(t.rank_tba)) parts.push(h('span', null, 'TBA ', h('b', null, '#' + t.rank_tba), t.record ? ' (' + t.record + ')' : ''));
+    if (!parts.length) return null;
+    var out = [];
+    parts.forEach(function (p, i) { if (i) out.push(' · '); out.push(p); });
+    return h('div', { class: 'ext' }, out);
+  }
+
+  function statsLine(t) {
+    if (!Number(t.matches)) return h('div', { class: 'unscouted' }, 'Not scouted yet');
+    var climbBest = t.climb_l3 > 0 ? 'L3 ' + pct(t.climb_l3) : t.climb_l2 > 0 ? 'L2 ' + pct(t.climb_l2) : 'L1 ' + pct(t.climb_l1);
+    var problems = [];
+    if (t.no_show_rate > 0) problems.push('no-show ' + pct(t.no_show_rate));
+    if (t.broke_rate > 0) problems.push('broke ' + pct(t.broke_rate));
+    if (t.dead_auto_rate > 0) problems.push('dead auto ' + pct(t.dead_auto_rate));
+    return h('div', { class: 'stats' },
+      h('b', null, String(t.avg_total)), ' fuel/match (auto ', h('b', null, String(t.avg_auto)), ') · ',
+      h('b', null, pct(t.accuracy)), ' acc · climb ', h('b', null, climbBest), ' · ',
+      String(t.matches), ' matches', problems.length ? ' · ⚠ ' + problems.join(', ') : '');
   }
 
   function noteBox(label, value, meta, save) {
@@ -195,11 +277,6 @@
         call('saveTag', t.team, newTag).then(function () { t.tag = newTag; render(); }).catch(function (e) { toast(e.message, true); });
       } }, tag);
     });
-    var climbBest = t.climb_l3 > 0 ? 'L3 ' + pct(t.climb_l3) : t.climb_l2 > 0 ? 'L2 ' + pct(t.climb_l2) : 'L1 ' + pct(t.climb_l1);
-    var problems = [];
-    if (t.no_show_rate > 0) problems.push('no-show ' + pct(t.no_show_rate));
-    if (t.broke_rate > 0) problems.push('broke ' + pct(t.broke_rate));
-    if (t.dead_auto_rate > 0) problems.push('dead auto ' + pct(t.dead_auto_rate));
     var sharedMeta = t.shared_note_by ? 'by ' + t.shared_note_by.split('@')[0] : '';
 
     var handle = canDrag ? h('button', { class: 'handle', title: 'Drag to reorder', 'aria-label': 'Drag to reorder' }, '⠿') : null;
@@ -217,10 +294,8 @@
           t.bot_type ? h('span', { class: 'badge' }, t.bot_type) : null,
           t.strength ? h('span', { class: 'badge ' + t.strength }, 'Strength ' + t.strength + ' (draft)') : null,
           t.fit ? h('span', { class: 'badge ' + t.fit }, 'Fit ' + t.fit + ': ' + t.fit_reason) : h('span', { class: 'badge' }, 'Fit: ' + t.fit_reason)),
-        h('div', { class: 'stats' },
-          h('b', null, String(t.avg_total)), ' fuel/match (auto ', h('b', null, String(t.avg_auto)), ') · ',
-          h('b', null, pct(t.accuracy)), ' acc · climb ', h('b', null, climbBest), ' · ',
-          String(t.matches), ' matches', problems.length ? ' · ⚠ ' + problems.join(', ') : ''),
+        statsLine(t),
+        extLine(t),
         h('div', { class: 'tags' }, tagBtns),
         noteBox('Shared note', t.shared_note, sharedMeta, function (v) { return call('saveSharedNote', t.team, v); }),
         noteBox('My private note', t.private_note, '', function (v) { return call('savePrivateNote', t.team, v); }),
@@ -294,8 +369,130 @@
       $('list').replaceChildren(h('div', { class: 'msg error' }, e.message));
     });
   }
-  ['f-scoring', 'f-type', 'f-strength', 'f-fit', 'f-tag'].forEach(function (id) { $(id).addEventListener('change', render); });
-  setInterval(function () { if (!editing && document.visibilityState === 'visible') load(); }, 60000);
+  FILTER_IDS.forEach(function (id) { $(id).addEventListener('change', render); });
+
+  // ---------- views ----------
+  var view = 'pick';
+  function showView(name) {
+    view = name;
+    [].forEach.call(document.querySelectorAll('nav.views button'), function (b) { b.classList.toggle('on', b.dataset.view === name); });
+    ['pick', 'next', 'health'].forEach(function (v) { $('v-' + v).hidden = v !== name; });
+    refreshView();
+  }
+  [].forEach.call(document.querySelectorAll('nav.views button'), function (b) {
+    b.addEventListener('click', function () { showView(b.dataset.view); });
+  });
+  function refreshView() {
+    if (view === 'pick') return load();
+    if (view === 'next') return loadNext();
+    return loadHealth();
+  }
+  /** The header's sync chip, for the screens that don't load the pick list. */
+  function setFreshness(d) {
+    data = data || { teams: [] };
+    data.now = d.now; data.loadedAt = Date.now(); data.lastSyncMs = d.lastSyncMs;
+    $('event').textContent = d.eventName || d.event || 'No event yet';
+    renderSync();
+  }
+
+  // ---------- next match ----------
+  var nextKey = null;   // null = follow "our next match" automatically
+  function miniTeam(t, ourTeam) {
+    return h('div', { class: 'mini' + (t.team === ourTeam ? ' us' : '') },
+      h('div', null, h('span', { class: 'team' }, String(t.team)), h('span', { class: 'name' }, t.name || ''),
+        t.tag ? h('span', { class: 'badge', style: 'margin-left:6px' }, t.tag) : null),
+      h('div', { class: 'badges' },
+        t.bot_type ? h('span', { class: 'badge' }, t.bot_type) : null,
+        t.scoring_level ? h('span', { class: 'badge ' + t.scoring_level }, 'Scoring ' + t.scoring_level) : null),
+      statsLine(t),
+      extLine(t),
+      t.shared_note ? h('div', { class: 'scout-note', style: 'border-left-color:var(--gold)' }, 'Mentors: ' + t.shared_note) : null,
+      (t.notes || []).slice().reverse().map(function (n) { return h('div', { class: 'scout-note' }, n.match + ': ' + n.text); }));
+  }
+  function allianceBox(color, side, d) {
+    return h('div', { class: 'alliance ' + color + (d.ourColor === color ? ' ours' : '') },
+      h('h2', null, (color === 'red' ? 'Red' : 'Blue') + ' alliance' + (d.ourColor === color ? ' ⚡ us' : '')),
+      h('div', { class: 'totals' },
+        'EPA sum ', h('b', null, side.epa === null ? '—' : String(side.epa)), side.epa !== null && side.epaCount < 3 ? ' (' + side.epaCount + ' of 3)' : '',
+        ' · scouted fuel ', h('b', null, side.scouted === null ? '—' : String(side.scouted))),
+      side.teams.map(function (t) { return miniTeam(t, d.ourTeam); }));
+  }
+  function loadNext() {
+    return call('getNextMatch', nextKey).then(function (d) {
+      setFreshness(d);
+      var sel = h('select', { 'aria-label': 'Match' },
+        h('option', { value: '' }, 'Our next match (automatic)'),
+        d.matches.map(function (m) {
+          var o = h('option', { value: m.key }, (m.ours ? '⚡ ' : '') + m.label + (m.score ? ' — ' + m.score[0] + ':' + m.score[1] : m.played ? ' (played)' : ''));
+          if (m.key === nextKey) o.selected = true;
+          return o;
+        }));
+      sel.addEventListener('change', function () { nextKey = sel.value || null; loadNext(); });
+      var body;
+      if (!d.key) body = h('div', { class: 'msg' }, d.matches.length ? 'No match chosen.' : 'No schedule yet — it arrives with the first sync after the laptop loads one.');
+      else body = [
+        h('h2', { style: 'margin:4px 0 8px;color:var(--gold)' }, d.label + (nextKey ? '' : d.ourColor ? ' · our next match' : ' · next match')),
+        d.result ? h('p', { class: 'result-line' }, 'Final: Red ' + d.result.red + ' – Blue ' + d.result.blue) : null,
+        h('div', { class: 'alliances' }, allianceBox('red', d.red, d), allianceBox('blue', d.blue, d)),
+        h('p', { class: 'hint' }, 'EPA is Statbotics\' estimate of points a team adds; "Season EPA" means Statbotics doesn\'t track this event, so it\'s from the 2026 season.'),
+      ];
+      // replaceChildren would print a null as the text "null"
+      $('v-next').replaceChildren.apply($('v-next'), [h('div', { class: 'match-pick' }, sel)].concat(body).filter(Boolean));
+    }).catch(function (e) { $('v-next').replaceChildren(h('div', { class: 'msg error' }, e.message)); });
+  }
+
+  // ---------- data health ----------
+  function agoText(ms, now) {
+    if (!ms) return 'never';
+    var m = Math.floor((now - ms) / 60000);
+    return m < 1 ? 'just now' : m < 120 ? m + ' min ago' : Math.round(m / 60) + ' h ago';
+  }
+  function pills(items, cls, text) {
+    return items.length ? h('div', { class: 'pill-list' }, items.map(function (x) { return h('span', { class: 'pill ' + cls }, text(x)); }))
+      : h('p', { class: 'hint good' }, 'None ✓');
+  }
+  function loadHealth() {
+    return call('getDataHealth').then(function (d) {
+      setFreshness(d);
+      var hh = d.health;
+      var mins = d.lastSyncMs ? (d.now - d.lastSyncMs) / 60000 : Infinity;
+      var fresh = h('div', { class: 'panel' }, h('h3', null, 'Freshness'),
+        h('div', { class: 'kv' },
+          h('span', { class: 'k' }, 'Last sync'), h('span', { class: mins >= 10 ? 'bad' : 'good' }, agoText(d.lastSyncMs, d.now) + (mins >= 10 ? ' — STALE' : '')),
+          h('span', { class: 'k' }, 'Waiting on laptop'), h('span', { class: hh && hh.pending ? 'bad' : '' }, hh ? String(hh.pending) + ' records' : '—'),
+          h('span', { class: 'k' }, 'Records synced'), h('span', null, String(d.recordsTotal)),
+          h('span', { class: 'k' }, 'TBA results'), h('span', null, agoText(d.intelFetched.tba, d.now)),
+          h('span', { class: 'k' }, 'Statbotics EPA'), h('span', null, agoText(d.intelFetched.statbotics, d.now))));
+      if (!hh) {
+        $('v-health').replaceChildren(fresh, h('div', { class: 'msg' }, 'No coverage report yet — it comes with the next sync from the scan station.'));
+        return;
+      }
+      var t = hh.totals || {};
+      var versions = Object.keys(hh.versions || {});
+      $('v-health').replaceChildren(fresh,
+        h('div', { class: 'panel' }, h('h3', null, 'Missing scans'),
+          h('p', { class: 'big-stat ' + (t.missing ? 'bad' : 'good') }, !hh.playedThrough ? 'No matches played yet'
+            : t.missing ? 'Missing ' + t.missing + ' of ' + t.slots + ' through ' + hh.playedThroughLabel
+              : 'All ' + t.slots + ' scans in through ' + hh.playedThroughLabel + ' ✓'),
+          pills(hh.missing || [], 'bad', function (m) { return m.label.replace('Qual ', 'Q') + ' ' + m.station + ' (' + m.team + ')'; }),
+          t.missing > (hh.missing || []).length ? h('p', { class: 'hint' }, 'Showing the latest ' + hh.missing.length + '.') : null),
+        h('div', { class: 'panel' }, h('h3', null, 'Team mismatches (record ≠ schedule)'),
+          pills(hh.mismatches || [], 'warn', function (m) {
+            return m.label.replace('Qual ', 'Q') + ' ' + m.station + ': schedule ' + m.expected + ', got ' + m.found.map(function (f) { return f.team + ' by ' + f.scout; }).join(', ');
+          })),
+        h('div', { class: 'panel' }, h('h3', null, 'Two or more scouts on one robot'),
+          pills(hh.multi || [], '', function (m) { return m.label.replace('Qual ', 'Q') + ' ' + m.station + ': ' + m.found.map(function (f) { return f.scout; }).join(', '); })),
+        h('div', { class: 'panel' }, h('h3', null, 'Records for matches not in the schedule'),
+          pills(hh.extras || [], 'warn', function (e) { return e.label + ' ' + e.station + ' team ' + e.team + ' (' + e.scout + ')'; })),
+        h('div', { class: 'panel' }, h('h3', null, 'iPad app versions'),
+          versions.length > 1 ? h('p', { class: 'hint bad' }, '⚠ More than one app version in use — update the older iPads between matches.') : null,
+          pills(versions, '', function (v) { return 'v' + v + ': ' + hh.versions[v] + ' records'; })),
+        h('div', { class: 'panel' }, h('h3', null, 'Records per scout'),
+          pills(hh.perScout || [], '', function (s) { return s.scout + ': ' + s.records; })));
+    }).catch(function (e) { $('v-health').replaceChildren(h('div', { class: 'msg error' }, e.message)); });
+  }
+
+  setInterval(function () { if (!editing && document.visibilityState === 'visible') refreshView(); }, 60000);
   load();
 </script>
 </body>

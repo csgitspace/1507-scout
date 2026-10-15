@@ -50,6 +50,10 @@
               <a id="dash-link" class="btn small" target="_blank" rel="noopener" hidden>Open mentor dashboard ↗</a>
             </div>
           </div>
+          <div class="panel">
+            <h3>Event data (TBA + Statbotics)</h3>
+            <div id="intel-line" class="sync-line">—</div>
+          </div>
         </div>
       </div>
     </section>
@@ -162,6 +166,19 @@
             <button id="sync-test" class="btn primary">Sync now</button>
             <span id="sync-msg"></span>
           </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>5 · Event data</h2>
+        <p class="fine">Reference data for mentors, fetched over the tethered phone and sent with each sync. It's never
+          mixed into scouting records. <b>The Blue Alliance</b>: match results, rankings and OPR, every 3 minutes (needs the
+          TBA read key). <b>Statbotics</b>: each team's EPA, every 30 minutes (event EPA if Statbotics tracks this event,
+          otherwise the team's season EPA). If either site is down, scanning and sync carry on.</p>
+        <div id="intel-detail" class="intel-detail"></div>
+        <div class="actions">
+          <button id="intel-refresh" class="btn primary">⟳ Fetch event data now</button>
+          <span id="intel-msg"></span>
         </div>
       </div>
     </section>

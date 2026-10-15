@@ -12,7 +12,7 @@ the rules it must not break, and the decisions made so far.
 | [scout-app/](scout-app/) | iPad web app (offline, QR output) + lead tools | Milestone 1 ✅ |
 | [shared/](shared/) | Field list + record/QR format, used by every app | ✅ |
 | [laptop/](laptop/) | Scan station: QR intake, SQLite database, coverage, iPad codes | Milestone 2 ✅ (sync: M3) |
-| [dashboard/](dashboard/) | Apps Script sync endpoint + mentor pick list | Milestone 3 ✅ (deployed) |
+| [dashboard/](dashboard/) | Apps Script sync endpoint + mentor pick list, Next match, Data health | Milestone 3 ✅ (deployed) · Milestone 4 built, not yet deployed |
 | [docs/](docs/) | Specs, plans, legacy audit | |
 | [legacy/](legacy/) | v3 app, reference only | |
 
@@ -42,7 +42,12 @@ npm's helper script. Type `npm.cmd` instead of `npm` (e.g. `npm.cmd run station`
    show a green dot) or **Use webcam**. Every scan gives a green or red answer
    and a beep.
 4. Check **Coverage** between matches. It lists every station and match that
-   hasn't been scanned.
+   hasn't been scanned. Once TBA posts results, a played match that nobody
+   scanned counts as missing too.
+5. **Event setup → 5 · Event data** shows whether TBA results (every 3 min)
+   and Statbotics EPA (every 30 min) are coming in. Both are optional: if
+   either site is down, scanning and sync carry on. Mentors see EPA, OPR and
+   TBA rank on the pick list and the **Next match** screen.
 
 The database backs itself up to `data/backups/` every 10 minutes. If the
 laptop dies, the iPads still have every record: Lead menu → Show all QR codes.

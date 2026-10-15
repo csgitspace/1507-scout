@@ -336,6 +336,40 @@ function renderSync(s) {
 
 async function refreshSync() { renderSync(await api('/api/sync')); }
 
+// ---------- Event data (TBA results + Statbotics EPA) ----------
+function intelPart(name, s, what) {
+  if (s.running) return { cls: '', text: `${name}: fetching…` };
+  if (s.lastError && !s.fetchedAt) return { cls: 'bad', text: `${name}: ⚠ ${s.lastError}` };
+  if (!s.fetchedAt) return { cls: '', text: `${name}: not fetched yet` };
+  const stale = s.lastError ? ` · ⚠ ${s.lastError}` : '';
+  return { cls: s.lastError ? 'bad' : 'ok', text: `${name}: ✓ ${what} · ${ago(s.fetchedAt)}${stale}` };
+}
+
+function renderIntel(st) {
+  const sbWhat = `${st.statbotics.teams} team EPAs${st.statbotics.source && st.statbotics.source !== 'none' ? ` (${st.statbotics.source})` : ''}`;
+  const parts = [
+    st.hasTbaKey ? intelPart('TBA', st.tba, `${st.tba.results} results, ${st.tba.rankings} ranked, ${st.tba.oprs} OPRs`)
+      : { cls: 'bad', text: 'TBA: no read key — enter it in section 1' },
+    intelPart('Statbotics', st.statbotics, sbWhat),
+  ];
+  const line = $('intel-line');
+  line.className = `sync-line ${parts.some(p => p.cls === 'bad') ? 'bad' : parts.every(p => p.cls === 'ok') ? 'ok' : ''}`;
+  line.replaceChildren(...parts.map(p => h('div', { class: 'fine' }, p.text)));
+  $('intel-detail').replaceChildren(...parts.map(p => h('div', { class: `sync-line ${p.cls}` }, p.text)));
+}
+
+async function refreshIntel() { renderIntel(await api('/api/intel')); }
+
+$('intel-refresh').addEventListener('click', async () => {
+  message('intel-msg', 'Fetching… (Statbotics can take ~30 s)');
+  try {
+    const st = await api('/api/intel/refresh', {});
+    renderIntel(st);
+    const err = st.tba.lastError || st.statbotics.lastError;
+    message('intel-msg', err ? `Done, with a problem: ${err}` : 'Done ✓ — it goes to the dashboard on the next sync', !err);
+  } catch (err) { message('intel-msg', err.message, false); }
+});
+
 async function syncNow(msgId) {
   renderSync({ ...(await api('/api/sync')), running: true });
   const s = await api('/api/sync/now', {});
@@ -359,6 +393,7 @@ async function refresh() {
   try {
     await loadState();
     refreshSync();
+    refreshIntel();
     if (tab === 'scan') await refreshScanSide();
     else if (tab === 'coverage') await refreshCoverage();
     else if (tab === 'records') await refreshRecords();

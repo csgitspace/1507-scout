@@ -15,6 +15,8 @@
 //   GET  /api/sync            dashboard sync status
 //   POST /api/sync/now        push to the dashboard right now
 //   POST /api/sync/config     { url, token, dashboardUrl } — blank = use data/dashboard.json
+//   GET  /api/intel           TBA results + Statbotics EPA fetch status
+//   POST /api/intel/refresh   fetch both right now
 // ==============================================================================
 
 import { readFile } from 'node:fs/promises';
@@ -24,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { ingest } from './intake.js';
 import { coverage } from './coverage.js';
 import { importEvent } from './tba.js';
+import { latestPlayed } from './intel.js';
 import { EVENT_RE } from '../shared/codec.js';
 import { FIELDS, displayValue } from '../shared/fields.js';
 import { STATIONS, orderedKeys, matchLabel } from '../shared/schedule.js';
@@ -42,7 +45,7 @@ class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
-export function createHandler({ store, sync = null, fetchImpl = fetch }) {
+export function createHandler({ store, sync = null, intel = null, fetchImpl = fetch }) {
   const event = () => store.getSetting('event');
   const scheduleMatches = (ev) => orderedKeys(store.schedule(ev)).map(k => ({ key: k, teams: store.schedule(ev)[k] }));
 
@@ -78,7 +81,8 @@ export function createHandler({ store, sync = null, fetchImpl = fetch }) {
     'GET /api/coverage': () => {
       const ev = event();
       if (!ev) return { rows: [], missing: [], extras: [], totals: { slots: 0, scanned: 0, missing: 0 }, playedThrough: null };
-      return coverage(store.schedule(ev), store.currentRecords(ev), { playedThrough: store.getSetting(`playedThrough:${ev}`) });
+      return coverage(store.schedule(ev), store.currentRecords(ev),
+        { playedThrough: store.getSetting(`playedThrough:${ev}`), resultsThrough: latestPlayed(store, ev) });
     },
 
     'POST /api/played': (body) => {
@@ -158,6 +162,13 @@ export function createHandler({ store, sync = null, fetchImpl = fetch }) {
         store.setSetting(key, v || null);
       }
       return sync ? sync.getStatus() : {};
+    },
+
+    'GET /api/intel': () => (intel ? intel.getStatus() : { hasTbaKey: false, tba: {}, statbotics: {} }),
+
+    'POST /api/intel/refresh': () => {
+      if (!event()) throw new HttpError(400, 'Save the event settings first');
+      return intel ? intel.refreshAll() : { hasTbaKey: false, tba: {}, statbotics: {} };
     },
 
     'GET /api/codes': () => {

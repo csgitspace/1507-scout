@@ -13,8 +13,12 @@
 // ==============================================================================
 
 import { existsSync, readFileSync } from 'node:fs';
+import { intelSignature } from './intel.js';
 
-export function createSync({ store, dashboardFile = null, tokenSource = null, fetchImpl = fetch, now = () => Date.now(), batchSize = 300 }) {
+// intelFor(event) -> { external, results, fetched } (laptop/intel.js externalFor): sent only when it changes.
+// healthFor(event) -> Data health payload (laptop/coverage.js health): sent every run, it's small.
+export function createSync({ store, dashboardFile = null, tokenSource = null, fetchImpl = fetch, now = () => Date.now(), batchSize = 300,
+  intelFor = null, healthFor = null }) {
   const status = { lastAttempt: null, lastSuccess: null, lastError: null, lastAdded: 0, running: false };
 
   function config() {
@@ -98,6 +102,9 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
       // Schedule + teams go along only when they've changed since the last confirmed sync.
       const metaSig = `${store.getSetting(`scheduleRev:${event}`) || ''}:${store.teams(event).length}`;
       let sendMeta = metaSig !== store.getSetting(`syncedMeta:${event}`);
+      const intel = intelFor ? intelFor(event) : null;
+      const intelSig = intel ? intelSignature(intel) : null;
+      let sendIntel = !!intel && intelSig !== store.getSetting(`syncedIntel:${event}`);
       let added = 0;
       for (let round = 0; round < 10; round++) {
         const recs = store.unsyncedRecords(event, batchSize);
@@ -110,10 +117,14 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
           body.schedule = Object.keys(sched).map(key => ({ key, teams: sched[key] }));
           body.teams = store.teams(event);
         }
+        if (sendIntel) body.intel = intel;
+        // "waiting" = what's still on the laptop once this request lands
+        if (healthFor) body.health = { ...healthFor(event), pending: Math.max(0, store.countUnsynced(event) - recs.length) };
         const res = await post(cfg.url, body);
         const sent = new Set(recs.map(r => r.id));
         store.markSynced((res.accepted || []).filter(id => sent.has(id)), now());
         if (sendMeta) { store.setSetting(`syncedMeta:${event}`, metaSig); sendMeta = false; }
+        if (sendIntel) { store.setSetting(`syncedIntel:${event}`, intelSig); sendIntel = false; }
         added += res.added || 0;
         if (recs.length < batchSize) break;
       }
