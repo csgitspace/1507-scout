@@ -56,7 +56,7 @@ back.
 |---|---|---|---|
 | **Scout app** | iPads (installed from Safari to the Home Screen) | Scouts; the scouting lead uses its PIN-locked Lead menu | Record a match offline, show it as a QR code |
 | **Scan station** | Scouting laptop (Windows), in a browser at `http://localhost:1507` | Scouting lead / scan-station operator | Scan QR codes, catch missing scans, set up iPads, import the schedule, sync to the dashboard |
-| **Pick-team dashboard (pick list)** | Any phone or computer; a Google web app | Mentors and student leads (signed in with **@warlocks1507.com** accounts); pick leads set the official list | Filter, rank, tag and annotate teams for alliance selection |
+| **Pick-team dashboard (pick list)** | Any phone or computer; a Google web app | Mentors and student leads (signed in with **@warlocks1507.com** accounts); pick leads set the official list | Filter, rank, tag and annotate teams; compare and chart them (**Analyze**); track picks during alliance selection |
 | **Lead tools page** | Any browser (backup) | Scouting lead | A backup way to make iPad setup codes if the laptop isn't available |
 
 Data flows one way: **iPad → (QR code) → scan station → (cellular, every 3 min) → Google Sheet → mentor dashboard.**
@@ -239,13 +239,25 @@ the station. **After updating the code, restart the station.**
 ## 6. Pick-team dashboard (pick list), for mentors and student leads
 
 Screenshot: `dashboard-pick-list-phone.png` (phone width, sample data). It
-predates the Official list / My list switch described below.
+predates the Official list / My list switch, Picked and the Analyze tab
+described below.
 
+- **Screens** (buttons under the header): **Pick list**, **Next match**,
+  **Data health**, **Analyze**.
 - **Access:** open the link and sign in with your **@warlocks1507.com**
-  Google account. The scouting Sheet must be shared with you as **Editor**
-  (that sharing *is* the access list). The first visit asks you to
-  **authorize** the app once; it may say "unverified". That's normal for
-  the team's own script.
+  Google account. Only warlocks1507.com accounts can open it. The scouting
+  Sheet must be shared with you as **Editor** (that sharing *is* the
+  access list).
+- **First visit:** Google asks you to **authorize** the app once. It may
+  say "unverified", which is normal for the team's own script. Tick
+  **every** box on that consent screen. If one is unticked, the app asks
+  again. If the pick list says "This app is missing a Google
+  permission…", go to **myaccount.google.com/connections**, remove
+  "Warlocks 1507 Pick List", reopen the page and tick every box.
+- **Opens instantly:** after your first visit, the phone shows the last
+  pick list you loaded right away, with "saved copy, updating…" in the
+  header until the fresh one arrives. The saved copy is per Google
+  account. It refreshes every minute while the page is open.
 - **Two roles, two lists** (switch at the top: **Official list** / **My list**):
   - **Pick leads** (mentors or student leaders whose emails the team
     account put on the Sheet's **Leads** tab) change the **official list**:
@@ -265,7 +277,9 @@ predates the Official list / My list switch described below.
   scoring, Auto scoring, Reliable climber, Level 3 climber, Defender,
   Feeder). The **Fit** of each team is computed from these.
 - **Filters:** Scoring (High/Mid/Low), Bot type (Scorer/Feeder/Defense/
-  Hybrid), Strength (draft), Fit, Tag (Target/Backup/Avoid/Untagged).
+  Hybrid), Strength (draft), Fit, Tag (Target/Backup/Avoid/Untagged),
+  Picked (Show / **Hide picked**). **Sort:** Pick order, EPA, Scouted
+  fuel, TBA rank.
 - **Each team card:**
   - **Pick rank:** drag ⠿ or use ▲▼. On the official list (pick leads
     only) it saves for everyone; on My list it saves just for you.
@@ -276,13 +290,59 @@ predates the Official list / My list switch described below.
   - A stats line: fuel per match (auto), accuracy, best climb rate,
     matches scouted, and ⚠ reliability problems (no-show, broke, dead auto).
   - **Target / Backup / Avoid** tag buttons (the card edge turns
-    green/blue/red).
+    green/blue/red). Tags change on screen immediately.
+  - **Picked** button (pick leads only, on the official list). See
+    alliance selection below.
   - A **Shared note** (the whole pick team sees it, stamped "by name";
     only pick leads can edit it).
   - A **My private note** (only you see it in the dashboard).
   - **Scout notes (N)** expands the scouts' match notes.
 - Team 1507 (us) is not shown, since we can't pick ourselves.
 - The dashboard never changes scouting data.
+
+**Alliance selection (4pm Saturday):**
+- When another alliance takes a team, a pick lead taps **Picked** on its
+  card. Everyone sees the card dimmed, with the number crossed out and a
+  **PICKED** badge. The pick order does not change.
+- Once any team is picked, a **Best available** box appears above the
+  list. It shows the top three teams still available, in the current
+  list's order, and skips Avoid-tagged teams. On My list it follows your
+  own order.
+- **Hide picked** (filter) removes picked teams from the list.
+  **Clear all picked** (pick leads, in the Best available box) resets for
+  the next event.
+
+**Analyze screen** (charts, built from the same data as the pick list):
+- **Compare teams:** choose up to three teams. Shows a side-by-side table
+  of fuel, auto, teleop, accuracy, climbs, reliability, bot type, EPA,
+  OPR, TBA rank and matches scouted. The best value in each row is gold.
+  Defaults to the top two of the official order.
+- **Match by match:** fuel scored in each compared team's matches, in the
+  order they played. A gap means a no-show.
+- **Alliance builder:** 1507 plus the first two compared teams.
+  - Shows total fuel per match (vs. a "typical alliance", three median
+    teams at this event), auto fuel, expected robots climbing, expected
+    Level 3 climbs, EPA total, and "All working" (the three reliabilities
+    multiplied).
+  - If 1507 hasn't been scouted, it totals the picks only and says so.
+- **Scoring vs reliability:** a dot per team, fuel per match vs.
+  reliability %. Colored by official tag; ✕ marks picked teams. Dashed
+  lines are the event medians, so the top-right corner scores a lot and
+  keeps working.
+- **Consistency (top 16 scorers):** a bar from each team's worst match to
+  its best, with a gold mark at its average. Short bar = predictable.
+- **Our scouting vs EPA:** a dot per team, Statbotics EPA vs. our scouted
+  fuel per match, with a trend line.
+  - Shows how closely they agree (r, where 1 = perfect) and names the
+    three teams furthest from the line.
+  - Above the line means the team scored more for our scouts than its
+    season suggests; below means less. Either way, worth a second look.
+- **Auto vs teleop** and **Climbing** (Level 3 / 2 / 1 / none): stacked
+  bars for the top 16 teams.
+- Team 1507 is left out of the charts (we're in the alliance builder
+  instead). The charts load the first time Analyze is opened, which needs
+  a connection. Consistency and Match by match need per-match data,
+  which every sync since 2026-10-15 includes.
 
 **How the levels are computed (explain plainly):**
 - **Scoring level:** teams are ranked by average fuel scored per match and
@@ -327,6 +387,8 @@ predates the Official list / My list switch described below.
    **schedule codes** to every iPad again.
 6. Mentors watch the pick list. If it says **STALE**, check the phone
    tether and the station's sync panel.
+7. At alliance selection, one pick lead taps **Picked** on each team as
+   other alliances take it. Everyone else watches **Best available**.
 
 **If something goes wrong:**
 
@@ -338,7 +400,9 @@ predates the Official list / My list switch described below.
 | iPad shows the wrong team | Lead menu → **Set team for this match** |
 | A match is missing from the iPad's schedule | Lead menu → **Add a match by hand**, or re-show the schedule codes |
 | iPad can't find its data / starts at setup | It was probably opened in a Safari tab, not from the Home Screen icon |
-| "running scripts is disabled" in PowerShell | Use `npm.cmd` instead of `npm` |
+| "running scripts is disabled" in PowerShell | Use `npm.cmd` instead of `npm` (and `clasp.cmd` instead of `clasp`) |
+| Pick list: "This app is missing a Google permission…" | That person unticked a box on Google's consent screen. myaccount.google.com/connections → remove "Warlocks 1507 Pick List" → reopen, tick every box |
+| Pick list: "You don't have access to the scouting Sheet" | Share the Sheet with that exact @warlocks1507.com address as Editor |
 
 ---
 
@@ -388,7 +452,7 @@ predates the Official list / My list switch described below.
   First check that each field traces to a real decision (the team's
   "begin with the end" table).
 - **Commands:**
-  - `npm test`: about 50 automated tests, including encoding a real QR
+  - `npm test`: about 80 automated tests, including encoding a real QR
     image and decoding it again
   - `npm.cmd run station`: start the scan station
   - `npm.cmd run station:login`: sign the laptop in to Google
@@ -426,8 +490,19 @@ predates the Official list / My list switch described below.
 - Pit scouting and robot photos (not in this version).
 - Confirming FRC rule E301 for this season (ask the event FTA about USB
   tethering).
-- Still to come (Milestone 4): automatic periodic TBA results, and the
-  dashboard screens **Next match** (six-team brief) and **Data health**.
+
+**Built and deployed 2026-10-15, first used at Rah Cha Cha Ruckus
+(2026-10-17):**
+- TBA results and Statbotics EPA fetched automatically
+- the **Next match** and **Data health** screens
+- pick roles (Official list / My list)
+- the **Analyze** charts
+- **Picked** / **Best available** for alliance selection
+- a pick list that opens instantly from a saved copy
+
+**Ideas for later:**
+- a server-side cache, if the pick list still feels slow
+- per-match trend charts once there are more matches per team (districts)
 
 ---
 
@@ -438,8 +513,10 @@ predates the Official list / My list switch described below.
    "required" and "restored" behaviors.
 2. **Scouting lead runbook:** setup, event day, Coverage, troubleshooting
    (sections 4.1, 5, 7).
-3. **Mentor pick-list guide** (1–2 pages, phone screenshots): signing in,
-   filters, tags, ranking, notes, what the levels mean, the draft caveats.
+3. **Pick-list guide** (a few pages, phone screenshots): signing in,
+   filters, tags, ranking, notes, what the levels mean, Analyze charts,
+   alliance selection, the draft caveats. Done:
+   `docs/handoff/Pick-List-User-Guide.pdf`.
 4. **Student maintainer guide:** section 9 expanded.
 5. **Presentation: "How Warlocks scouting works"** for team and mentors,
    about 10–12 slides:

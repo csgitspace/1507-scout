@@ -1,0 +1,307 @@
+﻿<!DOCTYPE html>
+<!--
+  Source for docs/handoff/Pick-List-User-Guide.pdf.
+  To rebuild the PDF after editing (from the repo root, in PowerShell):
+    & "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new --disable-gpu --no-pdf-header-footer `
+      --print-to-pdf="docs\handoff\Pick-List-User-Guide.pdf" "file:///C:/1507-scout/docs/handoff/pick-list-guide.html"
+  Screenshots (sample data, phone width) are in screenshots/pick-list/.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Warlocks 1507 Pick List: User Guide</title>
+<style>
+  @page { size: Letter; margin: 0.6in 0.65in 0.65in; }
+  :root { --navy: #00004d; --gold: #e0b400; --ink: #1b1b2e; --muted: #5a5f7a; --line: #d9dbe6; --tint: #f4f5fa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font: 10.5pt/1.45 "Segoe UI", Roboto, Arial, sans-serif; background: #fff; }
+  h1 { font-size: 24pt; margin: 0; color: var(--navy); letter-spacing: .5px; }
+  h2 { font-size: 14.5pt; color: var(--navy); margin: 20px 0 6px; padding-bottom: 3px; border-bottom: 2.5px solid var(--gold); break-after: avoid; }
+  h3 { font-size: 11.5pt; color: var(--navy); margin: 12px 0 3px; break-after: avoid; }
+  p { margin: 4px 0 8px; }
+  ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+  li { margin: 2px 0; }
+  b { color: #000; }
+  .ui { font-weight: 700; color: var(--navy); }
+  code { font: 9.5pt Consolas, monospace; background: var(--tint); padding: 0 3px; border-radius: 3px; }
+  .cover { background: linear-gradient(135deg, #00001a, var(--navy) 60%, #000080); color: #fff; padding: 16px 22px 14px; border-radius: 10px;
+           position: relative; margin-bottom: 14px; }
+  .cover h1 { color: #FFD700; }
+  .cover .sub { color: #bcdcff; font-size: 11pt; margin-top: 4px; }
+  .cover .bolt { position: absolute; right: 22px; top: 12px; font-size: 40pt; color: #FFD700; }
+  .cover a { color: #FFD700; word-break: break-all; font-size: 8.5pt; }
+  .row { display: grid; grid-template-columns: 1fr 2.25in; gap: 18px; align-items: start; margin: 6px 0 10px; }
+  .row.wide { grid-template-columns: 1fr 2.6in; }
+  figure { margin: 0; break-inside: avoid; }
+  figure img { width: 100%; border-radius: 8px; border: 1px solid #222244; display: block; }
+  figcaption { color: var(--muted); font-size: 8.5pt; margin-top: 3px; text-align: center; }
+  .box { background: var(--tint); border-left: 4px solid var(--gold); border-radius: 6px; padding: 8px 12px; margin: 8px 0 10px; break-inside: avoid; }
+  .box.warn { border-left-color: #d64545; }
+  .box h3 { margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 10px; font-size: 9.5pt; break-inside: avoid; }
+  th, td { text-align: left; padding: 5px 7px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--navy); color: #fff; font-weight: 700; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0 12px; break-inside: avoid; }
+  .flow div { background: var(--tint); border: 1.5px solid var(--navy); border-radius: 8px; padding: 7px 6px; text-align: center; font-size: 8.8pt; position: relative; }
+  .flow div b { display: block; color: var(--navy); font-size: 9.5pt; }
+  .flow div:not(:last-child)::after { content: '▶'; position: absolute; right: -9px; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 10pt; }
+  .page-break { break-before: page; }
+  .two { columns: 2; column-gap: 22px; }
+  .two > * { break-inside: avoid; }
+  .small { font-size: 9pt; color: var(--muted); }
+  .footer-note { margin-top: 18px; color: var(--muted); font-size: 8.5pt; border-top: 1px solid var(--line); padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="bolt">⚡</div>
+  <h1>Warlocks 1507 Pick List</h1>
+  <div class="sub">User guide for the pick team: mentors and student leads · October 2026</div>
+  <p style="margin:10px 0 0;font-size:9.5pt">Open it on your phone:<br>
+    <a href="https://script.google.com/a/macros/warlocks1507.com/s/AKfycbyIUDYSrwusIv5zlMygiPKP4vd6h6G7KjMVgBEERNaDfEY1PQQw-AWF3IR3n_S0lIlBjA/exec">https://script.google.com/a/macros/warlocks1507.com/s/AKfycbyIUDYSrwusIv5zlMygiPKP4vd6h6G7KjMVgBEERNaDfEY1PQQw-AWF3IR3n_S0lIlBjA/exec</a></p>
+</div>
+
+<p>The pick list collects everything our scouts record and turns it into a ranked list for <b>alliance selection</b>.</p>
+<ul>
+  <li>You can filter and tag teams, add notes, compare teams on charts, and track who's been picked as it happens.</li>
+  <li>It updates by itself about every 3 minutes during the event.</li>
+  <li>It never changes what the scouts recorded.</li>
+</ul>
+<p class="small">Screenshots in this guide use made-up sample data.</p>
+
+<h2>1. Getting in</h2>
+<div class="row">
+  <div>
+    <ol>
+      <li>Open the link above on your phone and sign in with your <b>@warlocks1507.com</b> Google account. Other accounts can't open it.</li>
+      <li>The first time, Google asks you to <b>authorize</b> the app. It may say "unverified", which is normal for the team's own app.
+        <b>Tick every box</b> on that screen, then Continue. If you leave one unticked, the app asks again.</li>
+      <li>Add it to your home screen so it's one tap away at 4pm Saturday.</li>
+    </ol>
+    <div class="box">
+      <h3>Opens instantly</h3>
+      After your first visit, the phone shows the last pick list you loaded right away, with
+      <span class="ui">saved copy, updating…</span> in the header. A moment later the fresh one replaces it.
+      While the page is open, it refreshes every minute.
+    </div>
+    <h3>Is it up to date?</h3>
+    <p>The green chip in the header says <span class="ui">Synced N min ago</span>. That's the last time the scan station pushed new scouting data.
+      It turns <b>red with "STALE"</b> after 10 minutes. If you see that, tell the scouting lead (usually the phone tether at the scan station).</p>
+    <h3>The four screens</h3>
+    <ul>
+      <li><span class="ui">Pick list</span>: the ranked list (most of this guide).</li>
+      <li><span class="ui">Next match</span>: the six teams in our next match, with their stats and notes.</li>
+      <li><span class="ui">Data health</span>: missing scans, scouting mistakes, and how fresh the data is.</li>
+      <li><span class="ui">Analyze</span>: charts and team comparison (section 5).</li>
+    </ul>
+  </div>
+  <figure><img src="screenshots/pick-list/pl-top.png" alt="Top of the pick list"><figcaption>Header, list switch, "Our robot needs", filters, Best available</figcaption></figure>
+</div>
+
+<h2>2. Official list and My list</h2>
+<div class="row">
+  <div>
+    <p>There are two lists. Switch between them at the top of the Pick list screen.</p>
+    <ul>
+      <li><b>Official list</b>: the team's pick order, tags and shared notes.
+        <ul>
+          <li>Only <b>pick leads</b> can change it. Pick leads are the people the team account lists on the <i>Leads</i> tab of the scouting Sheet.</li>
+          <li>Everyone else sees it read-only. The line under the switch says <span class="ui">Viewer</span>.</li>
+        </ul>
+      </li>
+      <li><b>My list</b>: your own practice list. Rank and tag teams however you like; only you see it, and it never changes the official list.
+        <ul>
+          <li><span class="ui">Start from the official list</span> copies the official order and tags as a starting point.</li>
+          <li><span class="ui">Clear my list</span> empties it.</li>
+          <li>Cards show an <span class="ui">Official: #3 Target</span> badge so you can compare.</li>
+        </ul>
+      </li>
+    </ul>
+    <p class="small">If nobody is on the Leads tab yet, everyone can edit the official list, and the page shows a warning.</p>
+  </div>
+  <figure><img src="screenshots/pick-list/pl-mylist.png" alt="My list switch"><figcaption>My list: your own order and tags</figcaption></figure>
+</div>
+
+<h2>3. Reading a team card</h2>
+<div class="row">
+  <div>
+    <ul>
+      <li><b>Rank</b> (gold number) and the <b>⠿ handle</b>.
+        <ul>
+          <li>Drag the handle, or tap ▲▼, to reorder. It saves for everyone on the official list, or just for you on My list.</li>
+          <li>Reordering is off while a filter or sort is on.</li>
+        </ul>
+      </li>
+      <li><b>Badges</b>:
+        <ul>
+          <li><b>Scoring</b> High/Mid/Low</li>
+          <li><b>bot type</b> (Scorer, Feeder, Defense or Hybrid)</li>
+          <li><b>Strength</b> (draft)</li>
+          <li><b>Fit</b>, with the reason, e.g. "Fit High: L3 80%, avg 41 fuel"</li>
+        </ul>
+        Section 6 explains how each is worked out.</li>
+      <li><b>Scouted stats</b>: fuel per match (auto in brackets), shooting accuracy, best climb level and how often, matches scouted. Any reliability problems appear after ⚠ (no-show, broke down, dead in auto).</li>
+      <li><b>Outside data</b> (blue line): Statbotics <b>EPA</b>, The Blue Alliance <b>OPR</b>, event rank and record.
+        "Season EPA" means Statbotics doesn't track this event, so the number is from the team's whole 2026 season.</li>
+      <li><b>Target / Backup / Avoid</b> tags. The card's left edge turns green, blue or red.</li>
+      <li><b>Shared note</b>: visible to the whole pick team, signed with who wrote it. Only pick leads can edit it.</li>
+      <li><b>My private note</b>: only you see it in the app. It saves when you tap outside the box.</li>
+      <li><b>Scout notes (N)</b>: tap to read what scouts wrote about this robot, newest first.</li>
+    </ul>
+    <h3>Our robot needs</h3>
+    <p>Pick leads tap the gaps in <i>our</i> robot (More scoring, Auto scoring, Reliable climber, Level 3 climber, Defender, Feeder).
+      Every team's <b>Fit</b> is worked out against those gaps, so set them before you sort by Fit.</p>
+    <h3>Filters and sort</h3>
+    <p>Narrow the list by Scoring, Bot type, Strength, Fit or Tag, or hide picked teams.
+      Sort by Pick order, EPA, Scouted fuel or TBA rank. Team 1507 isn't on the list, since we can't pick ourselves.</p>
+  </div>
+  <figure><img src="screenshots/pick-list/pl-card.png" alt="A team card"><figcaption>A team card on the official list (pick lead view)</figcaption></figure>
+</div>
+
+<h2>4. During alliance selection</h2>
+<div class="row">
+  <div>
+    <ol>
+      <li>One pick lead keeps the official list open. Each time another alliance takes a team, they tap <span class="ui">Picked</span> on its card.</li>
+      <li>Everyone sees that card dimmed, with the number crossed out and a <span class="ui">PICKED</span> badge. The pick order does <b>not</b> change.</li>
+      <li>A gold <span class="ui">Best available</span> box appears at the top. It shows the <b>top three teams still left</b>, in list order, and skips anything tagged Avoid.
+        That's the answer when it's our turn. On My list, it follows your own order.</li>
+      <li>Set the <span class="ui">Picked</span> filter to <span class="ui">Hide picked</span> to see only teams still available.</li>
+    </ol>
+    <p>After the event, a pick lead taps <span class="ui">Clear all picked</span> (in the Best available box) to reset.</p>
+    <div class="box">
+      <h3>Tip</h3>
+      Have the pick leads finish the official order <b>before</b> 4pm. During selection, only tap Picked and avoid reordering.
+      Everyone's Best available stays correct as long as the list itself isn't changing.
+    </div>
+  </div>
+  <figure><img src="screenshots/pick-list/pl-card-picked.png" alt="A picked team"><figcaption>A team taken by another alliance</figcaption></figure>
+</div>
+
+<h2>5. Analyze: charts and comparison</h2>
+<p>Tap <span class="ui">Analyze</span> in the header.</p>
+<ul>
+  <li>The charts use the same data as the pick list. The first time you open the screen it needs a connection to load the chart tool.</li>
+  <li>Tap any dot or bar to see the team and its numbers.</li>
+  <li>Team 1507 is left out of the charts but included in the alliance builder.</li>
+</ul>
+
+<div class="row wide">
+  <div>
+    <h3>Compare teams</h3>
+    <p>Choose up to three teams. The table lines up their scouted stats, EPA, OPR and TBA rank, and the best value in each row is gold.
+      It starts with the top two of the official list.</p>
+    <h3>Match by match</h3>
+    <p>Fuel each compared team scored in each of its matches, in the order they played. A gap means a no-show.
+      This shows whether a team is improving, fading, or had one bad match that pulls its average down.</p>
+    <h3>Alliance builder</h3>
+    <p>Us plus the first two compared teams:</p>
+    <ul>
+      <li>Total fuel per match, compared with a <b>typical alliance</b> here (three median teams). Green means we'd beat it.</li>
+      <li>Fuel in auto.</li>
+      <li>How many robots we'd expect to climb, and how many to reach Level 3.</li>
+      <li>Combined EPA.</li>
+      <li><b>All working</b>: the three teams' reliability scores multiplied together. It's a rough guide to how often all three robots would get through a match.</li>
+    </ul>
+  </div>
+  <div>
+    <figure><img src="screenshots/pick-list/an-compare.png" alt="Compare teams"></figure>
+    <figure style="margin-top:8px"><img src="screenshots/pick-list/an-alliance-builder.png" alt="Alliance builder"></figure>
+  </div>
+</div>
+
+<div class="row wide">
+  <div>
+    <h3>Scoring vs reliability</h3>
+    <p>One dot per team: fuel per match across, reliability up. Dashed lines mark the event medians.</p>
+    <ul>
+      <li><b>Top-right</b> teams score a lot <i>and</i> keep working. Start your list here.</li>
+      <li><b>Bottom-right</b> teams score well when they work but break down or don't show. Fine as a second pick only if you can live with the risk.</li>
+      <li>Dot colors are the official tags; ✕ marks picked teams.</li>
+    </ul>
+    <h3>Consistency</h3>
+    <p>Each bar runs from a team's <b>worst match to its best</b>, and the gold mark is its average.</p>
+    <ul>
+      <li>A <b>short bar</b> means you know what you'll get.</li>
+      <li>A <b>long bar</b> means the average hides big swings. Check its scout notes.</li>
+    </ul>
+  </div>
+  <div>
+    <figure><img src="screenshots/pick-list/an-scoring-vs-reliability.png" alt="Scoring vs reliability"></figure>
+  </div>
+</div>
+
+<div class="row wide">
+  <div>
+    <h3>Our scouting vs EPA</h3>
+    <p>Each dot compares a team's Statbotics <b>EPA</b> (its expected point contribution, from the whole season) with our <b>scouted fuel per match</b>.
+      They should rise together along the dashed trend line.</p>
+    <ul>
+      <li>The <b>r</b> value under the chart says how well they agree: 1 is perfect, above 0.7 is strong.</li>
+      <li>The three teams <b>furthest from the line</b> are named. Above the line means they're doing better for us than their season suggests (improved robot, or a scouting error). Below means worse (a struggling robot, or a scout who undercounted).</li>
+      <li>Either way, it's worth a second look before you rank them.</li>
+    </ul>
+    <h3>Auto vs teleop, and Climbing</h3>
+    <p>Stacked bars for the top 16 teams:</p>
+    <ul>
+      <li>Average fuel split into auto and teleop.</li>
+      <li>How often each team finished at Level 3, Level 2, Level 1 or no climb.</li>
+    </ul>
+  </div>
+  <div>
+    <figure><img src="screenshots/pick-list/an-scouting-vs-epa.png" alt="Our scouting vs EPA"></figure>
+  </div>
+</div>
+
+<h2>6. Where the numbers come from</h2>
+<div class="flow">
+  <div><b>Scout</b>watches one robot, records on an offline iPad</div>
+  <div><b>QR code</b>carries the record to the scan station</div>
+  <div><b>Scan station</b>checks and stores every record</div>
+  <div><b>Sync</b>every ~3 min over a phone's cellular data</div>
+  <div><b>Google Sheet</b>rebuilds team stats, which the pick list reads</div>
+</div>
+<p>Every sync, the Sheet keeps every record it has ever received, then rebuilds each team's numbers from scratch:</p>
+<ol>
+  <li><b>Corrections replace the original.</b> If a scout fixes a record, only the newest version counts. The old one is kept but not used.</li>
+  <li><b>One robot, one match, one observation.</b> If two scouts watched the same robot in the same match, their numbers are averaged so that match doesn't count twice.</li>
+  <li><b>No-shows don't drag down ability.</b> Scoring, accuracy and climbing averages skip matches where the robot never came on the field. No-shows still count against reliability.</li>
+  <li><b>Averages per match</b> for fuel (auto, teleop, total) and climb rates. Accuracy = fuel scored ÷ (scored + missed), auto misses included.</li>
+</ol>
+
+<table>
+  <tr><th style="width:24%">Shown as</th><th>How it's worked out</th></tr>
+  <tr><td><b>Scoring</b> High / Mid / Low</td><td>Teams ranked by average fuel per match and split into thirds for this event.</td></tr>
+  <tr><td><b>Climb</b> (e.g. L3 40%)</td><td>Share of played matches that ended at that level or higher.</td></tr>
+  <tr><td><b>Reliability</b></td><td>100% minus the no-show rate, minus the broke-down rate, minus half the dead-in-auto rate.</td></tr>
+  <tr><td><b>Bot type</b></td><td>The role scouts recorded most often (Scorer / Feeder / Defense). <b>Hybrid</b> if no role reaches 55% of matches.</td></tr>
+  <tr><td><b>Strength</b> <i>(draft)</i></td><td>Scoring rank × reliability, split into thirds.</td></tr>
+  <tr><td><b>Fit</b> <i>(draft)</i></td><td>How well the team covers the gaps ticked under "Our robot needs", scaled down for low reliability. High at 60% or more, Mid at 30% or more.</td></tr>
+  <tr><td><b>EPA, OPR, TBA rank</b></td><td>Fetched from Statbotics and The Blue Alliance. Shown alongside our numbers, never mixed into them.</td></tr>
+</table>
+
+<div class="box warn">
+  <h3>Keep in mind</h3>
+  <ul style="margin:0">
+    <li><b>Small samples.</b> At a one-day event each team plays about 8–10 matches, so one great or terrible match moves an average a lot. Check Consistency and the scout notes, and use EPA as a second opinion.</li>
+    <li><b>Strength and Fit are drafts.</b> The scouting leads haven't settled what they should mean. Use them to sort, not to decide.</li>
+    <li><b>Privacy.</b> Private notes and My lists are hidden from others in the app. Anyone who opens the scouting Sheet itself can still see those tabs.</li>
+  </ul>
+</div>
+
+<h2>7. If something's wrong</h2>
+<table>
+  <tr><th style="width:36%">You see</th><th>Do this</th></tr>
+  <tr><td>"This app is missing a Google permission…"</td><td>A box was unticked when you authorized. Go to <b>myaccount.google.com/connections</b>, remove "Warlocks 1507 Pick List", reopen the page and tick every box.</td></tr>
+  <tr><td>"You don't have access to the scouting Sheet"</td><td>Ask the scouting lead to share the Sheet with your exact @warlocks1507.com address as Editor.</td></tr>
+  <tr><td>Header says <b>STALE</b></td><td>No sync for 10+ minutes. Tell the scouting lead; the scan station's phone tether is the usual cause. What you see is still the last good data.</td></tr>
+  <tr><td>"saved copy (couldn't refresh)"</td><td>Your phone lost its connection. You're seeing your last copy; it refreshes on its own once you're back online.</td></tr>
+  <tr><td>Tag, order or note buttons are greyed out</td><td>You're a viewer on the official list. Switch to <b>My list</b>, or ask to be added as a pick lead.</td></tr>
+  <tr><td>"Not scouted yet" on a card</td><td>The team is at the event but no scout record has synced yet. EPA and OPR still show.</td></tr>
+  <tr><td>Analyze: "Match-by-match data arrives with the first sync…"</td><td>Wait for the next sync from the scan station.</td></tr>
+</table>
+
+</body>
+</html>
