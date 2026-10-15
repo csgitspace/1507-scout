@@ -18,7 +18,7 @@ var TAB = {
   RESULTS: 'Results',       // per played match: TBA scores
 };
 
-var MENTOR_HEADERS = ['team', 'rank', 'tag', 'shared_note', 'shared_note_by', 'shared_note_at', 'updated_by', 'updated_at'];
+var MENTOR_HEADERS = ['team', 'rank', 'tag', 'shared_note', 'shared_note_by', 'shared_note_at', 'updated_by', 'updated_at', 'picked'];
 var PRIVATE_HEADERS = ['email', 'team', 'note', 'updated_at'];
 var MYPICKS_HEADERS = ['email', 'team', 'rank', 'tag', 'updated_at'];
 var LEADS_HEADERS = ['email', 'name', 'role'];
@@ -81,14 +81,30 @@ function writeTable_(sheet, headers, rows) {
   if (sheet.setFrozenRows) sheet.setFrozenRows(1);
 }
 
+/**
+ * { headers, rows } in ONE Sheets call (getDataRange), for read paths where
+ * speed matters. rows are the arrays below the header.
+ */
+function readTable_(sheet) {
+  var values = sheet.getDataRange().getValues();
+  if (!values.length) return { headers: [], rows: [] };
+  return { headers: values[0].map(function (h) { return String(h).trim(); }), rows: values.slice(1) };
+}
+
 /** Rows of a sheet as objects keyed by header. */
 function readObjects_(sheet) {
-  var headers = readHeaders_(sheet);
-  return readRows_(sheet).map(function (row) {
+  var t = readTable_(sheet);
+  return t.rows.map(function (row) {
     var o = {};
-    headers.forEach(function (h, i) { if (h) o[h] = row[i]; });
+    t.headers.forEach(function (h, i) { if (h) o[h] = row[i]; });
     return o;
   });
+}
+
+/** readObjects_ of a tab by name, or [] if the tab doesn't exist yet. Never creates it. */
+function readTab_(ss, name) {
+  var sh = ss.getSheetByName(name);
+  return sh ? readObjects_(sh) : [];
 }
 
 /**
@@ -117,9 +133,12 @@ function configSheet_(ss) {
   ensureHeaderColumns_(sh, ['key', 'value']);
   return sh;
 }
+/** Read-only: doesn't create the Config tab (every page load calls this). */
 function kvGetAll_(ss) {
   var out = {};
-  readRows_(configSheet_(ss)).forEach(function (r) {
+  var sh = ss.getSheetByName(TAB.CONFIG);
+  if (!sh) return out;
+  readTable_(sh).rows.forEach(function (r) {
     if (!r[0]) return;
     try { out[r[0]] = JSON.parse(r[1]); } catch (e) { out[r[0]] = r[1]; }
   });

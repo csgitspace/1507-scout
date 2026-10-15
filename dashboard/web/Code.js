@@ -23,7 +23,16 @@ var TAGS = ['', 'Target', 'Backup', 'Avoid'];
 var NOTE_MAX = 1000;
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  // Google lets people untick permissions on the consent screen. Without the Sheets
+  // one, every load fails ("You do not have permission to call
+  // SpreadsheetApp.getActiveSpreadsheet") even for an Editor. This shows the
+  // consent screen again until every permission is granted.
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+  // The page needs to know who's signed in BEFORE its first server call, so the
+  // saved copy it shows instantly is this person's (their private notes).
+  var page = HtmlService.createTemplateFromFile('Index');
+  page.me = Session.getActiveUser().getEmail() || '';
+  return page.evaluate()
     .setTitle('Warlocks 1507 Pick List')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -43,9 +52,14 @@ function friendly_(fn) {
     return fn();
   } catch (err) {
     var msg = String(err && err.message || err);
+    if (/permission to call/i.test(msg)) {   // a permission unticked on Google's consent screen, not sharing
+      throw new Error('This app is missing a Google permission for ' + me_() + '. Go to myaccount.google.com/connections, ' +
+        'remove "Warlocks 1507 Pick List", then reopen this page and tick EVERY box on the consent screen.');
+    }
     if (/permission|access|not have/i.test(msg) && !/pick lead/i.test(msg)) {
+      // Keep Google's own message: "access" also matches errors that aren't about sharing.
       throw new Error('You don\'t have access to the scouting Sheet. Ask the scouting lead to share it with ' + me_() +
-        ' (Editor, to save notes).');
+        ' (Editor, to save notes). [Google said: ' + msg + ']');
     }
     throw err;
   }
@@ -72,9 +86,7 @@ function myPicksSheet_(ss) {
 // ---------- roles ----------
 /** Lowercased emails on the Leads tab (created and protected by the sync endpoint). */
 function leads_(ss) {
-  var sh = ss.getSheetByName(TAB.LEADS);
-  if (!sh) return [];
-  return readObjects_(sh).map(function (r) { return String(r.email || '').trim().toLowerCase(); })
+  return readTab_(ss, TAB.LEADS).map(function (r) { return String(r.email || '').trim().toLowerCase(); })
     .filter(function (e) { return e.indexOf('@') > 0; });
 }
 
@@ -90,7 +102,11 @@ function requireLead_(ss) {
   }
 }
 
-var EXTERNAL_FIELDS_ = EXTERNAL_COLUMNS.filter(function (c) { return c !== 'team'; });
+// A function, not a top-level var: Apps Script runs files in name order, so Code
+// loads before Sheets and EXTERNAL_COLUMNS doesn't exist yet at load time.
+function externalFields_() {
+  return EXTERNAL_COLUMNS.filter(function (c) { return c !== 'team'; });
+}
 
 /**
  * Every team at the event: scouted ones from Summary, plus teams on the TBA
@@ -101,30 +117,30 @@ var EXTERNAL_FIELDS_ = EXTERNAL_COLUMNS.filter(function (c) { return c !== 'team
 function allTeams_(ss) {
   var byTeam = {};
   var summary = ss.getSheetByName(TAB.SUMMARY);
-  (summary ? readRows_(summary).map(rowToSummary_) : []).forEach(function (t) { t.team = Number(t.team); byTeam[t.team] = t; });
+  (summary ? readTable_(summary).rows.map(rowToSummary_) : []).forEach(function (t) { t.team = Number(t.team); byTeam[t.team] = t; });
   var add = function (team, name) {
     team = Number(team);
     if (!(team >= 1)) return;
     if (!byTeam[team]) byTeam[team] = blankSummary_(team, name);
     else if (!byTeam[team].name && name) byTeam[team].name = name;
   };
-  var teamsTab = ss.getSheetByName(TAB.TEAMS);
-  if (teamsTab) readObjects_(teamsTab).forEach(function (t) { add(t.team_number, t.team_name); });
+  // Reads only (readTab_): loading the page never creates or reformats a tab.
+  readTab_(ss, TAB.TEAMS).forEach(function (t) { add(t.team_number, t.team_name); });
   var ext = {};
-  var extTab = ss.getSheetByName(TAB.EXTERNAL);
-  if (extTab) readObjects_(extTab).forEach(function (e) { ext[Number(e.team)] = e; add(e.team, ''); });
+  readTab_(ss, TAB.EXTERNAL).forEach(function (e) { ext[Number(e.team)] = e; add(e.team, ''); });
   var mentor = {};
-  readObjects_(mentorSheet_(ss)).forEach(function (m) { mentor[Number(m.team)] = m; });
+  readTab_(ss, TAB.MENTOR).forEach(function (m) { mentor[Number(m.team)] = m; });
 
   Object.keys(byTeam).forEach(function (k) {
     var t = byTeam[k], e = ext[t.team] || {}, m = mentor[t.team] || {};
     // External 'rank' is TBA's event rank: renamed so it can't be confused with the mentors' pick rank.
-    EXTERNAL_FIELDS_.forEach(function (c) { t[c === 'rank' ? 'rank_tba' : c] = e[c] === undefined ? '' : e[c]; });
+    externalFields_().forEach(function (c) { t[c === 'rank' ? 'rank_tba' : c] = e[c] === undefined ? '' : e[c]; });
     t.rank = m.rank === '' || m.rank === undefined ? null : Number(m.rank);
     t.tag = m.tag || '';
     t.shared_note = m.shared_note || '';
     t.shared_note_by = m.shared_note_by || '';
     t.shared_note_at = m.shared_note_at ? String(m.shared_note_at) : '';
+    t.picked = !!m.picked;   // taken by another alliance at alliance selection
   });
   return byTeam;
 }
@@ -141,9 +157,9 @@ function getPickList() {
       .filter(function (t) { return t.team !== OUR_TEAM; });
 
     var priv = {};
-    readObjects_(privateSheet_(ss)).forEach(function (p) { if (p.email === me) priv[p.team] = p.note; });
+    readTab_(ss, TAB.PRIVATE).forEach(function (p) { if (p.email === me) priv[p.team] = p.note; });
     var mine = {};
-    readObjects_(myPicksSheet_(ss)).forEach(function (p) { if (p.email === me) mine[Number(p.team)] = p; });
+    readTab_(ss, TAB.MYPICKS).forEach(function (p) { if (p.email === me) mine[Number(p.team)] = p; });
 
     teams.forEach(function (t) {
       var fit = fitFor(t, gaps);
@@ -172,6 +188,8 @@ function getPickList() {
       gaps: gaps,
       gapDefs: DRAFT.gaps.map(function (g) { return { id: g.id, label: g.label }; }),
       teams: teams,
+      ourTeam: OUR_TEAM,
+      us: byTeam[OUR_TEAM] || null,   // our own stats, for the Analyze alliance builder (we're not on the list)
     };
   });
 }
@@ -331,6 +349,35 @@ function saveRanking(teams) {
         if (r[idx.rank] !== rank) { r[idx.rank] = rank; r[idx.updated_by] = me; r[idx.updated_at] = at; }
       });
       writeTable_(sh, headers, rows.map(function (r) { return r.slice(0, headers.length); }));
+    });
+    return { ok: true };
+  });
+}
+
+/** Alliance selection: another alliance took this team. Shared, pick leads only; never changes the pick order. */
+function savePicked(team, picked) {
+  return friendly_(function () {
+    team = checkTeam_(team);
+    var ss = ss_(), me = me_(), at = new Date().toISOString();
+    requireLead_(ss);
+    withLock_(function () {
+      upsertRow_(mentorSheet_(ss), MENTOR_HEADERS, { team: team }, { picked: picked ? 'yes' : '', updated_by: me, updated_at: at });
+    });
+    return { ok: true };
+  });
+}
+
+/** Un-picks every team (after alliance selection, or for the next event). */
+function clearPicked() {
+  return friendly_(function () {
+    var ss = ss_();
+    requireLead_(ss);
+    withLock_(function () {
+      var sh = mentorSheet_(ss);
+      var t = readTable_(sh);
+      var col = t.headers.indexOf('picked');
+      if (col < 0 || !t.rows.length) return;
+      sh.getRange(2, col + 1, t.rows.length, 1).setValues(t.rows.map(function () { return ['']; }));
     });
     return { ok: true };
   });

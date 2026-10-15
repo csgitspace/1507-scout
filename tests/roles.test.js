@@ -108,3 +108,21 @@ test('the sync never touches My list or the Leads tab', () => {
   assert.equal(ss.getSheetByName('MyPicks').objects()[0].team, 33);
   assert.equal(ss.getSheetByName('Leads').objects()[0].email, 'coach@warlocks1507.com');
 });
+
+test('with leads listed: only pick leads mark teams picked', () => {
+  const { as } = setup(['coach@warlocks1507.com']);
+  as('coach@warlocks1507.com').savePicked(254, true);
+  const viewer = as('freshman@warlocks1507.com');
+  assert.equal(plain(viewer.getPickList()).teams.find(t => t.team === 254).picked, true, 'everyone sees it');
+  assert.throws(() => viewer.savePicked(118, true), /Only pick leads/);
+  assert.throws(() => viewer.clearPicked(), /Only pick leads/);
+});
+
+test('a permission unticked on Google\'s consent screen says how to fix it, not "share the Sheet"', () => {
+  const { as } = setup();
+  const web = as('noah@warlocks1507.com');
+  web.SpreadsheetApp = { getActiveSpreadsheet() {
+    throw new Error('You do not have permission to call SpreadsheetApp.getActiveSpreadsheet. Required permissions: (https://www.googleapis.com/auth/spreadsheets.currentonly)');
+  } };
+  assert.throws(() => web.getPickList(), (e) => /consent screen/.test(e.message) && /connections/.test(e.message) && !/share it/.test(e.message));
+});

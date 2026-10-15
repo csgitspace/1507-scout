@@ -160,3 +160,55 @@ test('dashboard: pick list merges mentor data; private notes stay private; ranki
   assert.equal(plain(alice.getPickList()).teams[0].private_note, 'alice only');
   assert.throws(() => alice.saveTag(254, 'Bogus'), /Bad tag/);
 });
+
+test('analyze data: per-match series in the summary, our own stats returned, old Summary without the column still loads', () => {
+  const { ss, post } = setup();
+  post({ records: [
+    rec({ match: 'qm1', team: 254, values: { auto_fuel_scored: 4, teleop_fuel_scored: 20, endgame_level: 2 } }),
+    rec({ match: 'qm2', team: 254, values: { no_show: true } }),
+    rec({ match: 'qm3', team: 254, values: { auto_fuel_scored: 6, teleop_fuel_scored: 30, broke_down: true } }),
+    rec({ match: 'qm1', team: 1507, station: 'R2', values: { teleop_fuel_scored: 12 } }),
+  ] });
+  const view = plain(loadProject('web', ss).getPickList());
+  const t254 = view.teams.find(t => t.team === 254);
+  assert.deepEqual(t254.series, [
+    { m: 'qm1', auto: 4, tele: 20, climb: 2, ns: 0, broke: 0 },
+    { m: 'qm2', auto: 0, tele: 0, climb: 0, ns: 1, broke: 0 },
+    { m: 'qm3', auto: 6, tele: 30, climb: 0, ns: 0, broke: 1 },
+  ], 'oldest first; no-show and broke flagged');
+  assert.equal(view.ourTeam, 1507);
+  assert.equal(view.us.team, 1507, 'our stats come back for the alliance builder');
+  assert.equal(view.us.avg_total, 12);
+  assert.ok(!view.teams.some(t => t.team === 1507), 'but we stay off the list');
+
+  // A Summary written before series_json existed (one column short) reads as an empty series.
+  const sum = ss.getSheetByName('Summary');
+  sum.data = sum.data.map(r => r.slice(0, -1));
+  assert.deepEqual(plain(loadProject('web', ss).getPickList()).teams.find(t => t.team === 254).series, []);
+});
+
+test('loading the pick list only reads: it never creates or reformats a tab', () => {
+  const ss = new FakeSpreadsheet();
+  const web = loadProject('web', ss);
+  const view = plain(web.getPickList());
+  assert.deepEqual(view.teams, []);
+  assert.equal(ss.sheets.size, 0, 'no tabs created on an empty Sheet');
+  web.getDataHealth();
+  web.getNextMatch();
+  assert.equal(ss.sheets.size, 0, 'nor by the other screens');
+});
+
+test('alliance selection: picked is shared, never changes the pick order, survives a sync, and clears', () => {
+  const { ss, post } = setup();
+  post({ records: [rec({ team: 254 }), rec({ team: 118, station: 'R2' }), rec({ team: 33, station: 'R3' })] });
+  const lead = loadProject('web', ss, { user: { email: 'lead@example.com' } });
+  lead.saveRanking([254, 118, 33]);
+  lead.savePicked(254, true);
+  post({ records: [rec({ team: 254, match: 'qm2' })] });
+  const view = plain(loadProject('web', ss, { user: { email: 'other@example.com' } }).getPickList());
+  assert.deepEqual(view.teams.map(t => [t.team, t.rank, t.picked]), [[254, 1, true], [118, 2, false], [33, 3, false]]);
+  lead.savePicked(254, false);
+  lead.savePicked(118, true);
+  lead.clearPicked();
+  assert.ok(plain(lead.getPickList()).teams.every(t => !t.picked));
+});

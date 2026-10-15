@@ -56,6 +56,8 @@ class FakeSheet {
       },
     };
   }
+  /** Like Sheets: at least A1, out to the last row and column with content. */
+  getDataRange() { return this.getRange(1, 1, Math.max(1, this.getLastRow()), Math.max(1, this.getLastColumn())); }
   clearContents() { this.data = []; return this; }
   setFrozenRows() { return this; }
   protect() {
@@ -96,15 +98,19 @@ export function loadProject(project, ss, { sheetId = 'SHEET', token = 'secret-to
     },
     Session: { getActiveUser: () => ({ getEmail: () => user.email }), getEffectiveUser: () => ({ getEmail: () => user.email }) },
     HtmlService: {},
+    ScriptApp: { AuthMode: { FULL: 'FULL' }, requireAllScopes() {} },
   });
-  const sources = [
-    fieldsJs(),
-    `var SHEET_ID = ${JSON.stringify(sheetId)}; var SYNC_TOKEN = ${JSON.stringify(token)};`,
-    readFileSync(`${DASH}common/Sheets.js`, 'utf8'),
-    readFileSync(`${DASH}common/Summary.js`, 'utf8'),
-    readFileSync(`${DASH}${project}/Code.js`, 'utf8'),
-  ];
-  for (const src of sources) vm.runInContext(src, context);
+  // Apps Script runs a project's files in file-name order (Code before Sheets),
+  // so load them that way here: a top-level var that reads another file's global
+  // must fail in the tests the same way it fails live.
+  const sources = {
+    'Code.js': readFileSync(`${DASH}${project}/Code.js`, 'utf8'),
+    'Config.js': `var SHEET_ID = ${JSON.stringify(sheetId)}; var SYNC_TOKEN = ${JSON.stringify(token)};`,
+    'Fields.js': fieldsJs(),
+    'Sheets.js': readFileSync(`${DASH}common/Sheets.js`, 'utf8'),
+    'Summary.js': readFileSync(`${DASH}common/Summary.js`, 'utf8'),
+  };
+  for (const name of Object.keys(sources).sort()) vm.runInContext(sources[name], context, { filename: name });
   return context;
 }
 

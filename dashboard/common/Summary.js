@@ -50,6 +50,9 @@ var SUMMARY_COLUMNS = [
   'reliability', 'role_trend', 'bot_type', 'scorer_share', 'feeder_share', 'defense_share',
   'cycle_avg', 'total_pct', 'auto_pct', 'scoring_level', 'strength_score', 'strength',
   'last_match', 'notes_json',
+  // Per match, oldest first, for the Analyze charts: [{ m: match_key, auto, tele, climb (0-3), ns, broke }].
+  // New columns go at the END: the dashboard reads Summary rows by position.
+  'series_json',
 ];
 
 function pct_(x) { return Math.round((x || 0) * 100) + '%'; }
@@ -118,7 +121,7 @@ function summarizeTeams(records, teamNames) {
 
   var out = Object.keys(byTeam).map(function (team) {
     var matchKeys = Object.keys(byTeam[team]).sort(function (a, b) { return matchSortKey_(a) - matchSortKey_(b); });
-    var played = [], all = [], roles = [0, 0, 0], roleTotal = 0, cycles = [], notes = [], nRecords = 0;
+    var played = [], all = [], roles = [0, 0, 0], roleTotal = 0, cycles = [], notes = [], nRecords = 0, series = [];
     matchKeys.forEach(function (mk) {
       var recs = byTeam[team][mk];
       nRecords += recs.length;
@@ -129,6 +132,8 @@ function summarizeTeams(records, teamNames) {
       });
       all.push(avg);
       if (avg.noShow < 0.5) played.push(avg);   // capability averages skip no-shows
+      series.push({ m: mk, auto: round1_(avg.auto), tele: round1_(avg.teleop), climb: round1_(avg.l1 + avg.l2 + avg.l3),
+        ns: avg.noShow >= 0.5 ? 1 : 0, broke: avg.broke >= 0.5 ? 1 : 0 });
       obs.forEach(function (o) {
         if (o.role !== null) { roles[o.role] += 1 / obs.length; roleTotal += 1 / obs.length; }
         if (o.cycle !== null) cycles.push(o.cycle);
@@ -169,6 +174,7 @@ function summarizeTeams(records, teamNames) {
       cycle_avg: cycles.length ? round1_(mean_(cycles)) : '',
       last_match: matchKeys.length ? matchLabel_(matchKeys[matchKeys.length - 1]) : '',
       notes: notes.slice(-12),
+      series: series,
     };
   });
 
@@ -221,18 +227,22 @@ function fitFor(t, gapIds) {
 function blankSummary_(team, name) {
   var t = {};
   SUMMARY_COLUMNS.forEach(function (c) { t[c] = ''; });
-  t.team = Number(team); t.name = name || ''; t.matches = 0; t.records = 0; t.notes = [];
+  t.team = Number(team); t.name = name || ''; t.matches = 0; t.records = 0; t.notes = []; t.series = [];
+  delete t.notes_json; delete t.series_json;
   return t;
 }
 
-/** Summary object -> sheet row, and back. */
+/** Summary object -> sheet row, and back. *_json columns <-> parsed arrays (notes, series). */
+var JSON_COLUMNS_ = { notes_json: 'notes', series_json: 'series' };
 function summaryToRow_(t) {
-  return SUMMARY_COLUMNS.map(function (c) { return c === 'notes_json' ? JSON.stringify(t.notes || []) : t[c]; });
+  return SUMMARY_COLUMNS.map(function (c) { return JSON_COLUMNS_[c] ? JSON.stringify(t[JSON_COLUMNS_[c]] || []) : t[c]; });
 }
 function rowToSummary_(row) {
   var t = {};
   SUMMARY_COLUMNS.forEach(function (c, i) {
-    if (c === 'notes_json') { try { t.notes = JSON.parse(row[i] || '[]'); } catch (e) { t.notes = []; } } else t[c] = row[i];
+    var key = JSON_COLUMNS_[c];
+    // A Summary written before a column existed has no cell for it: parse as [].
+    if (key) { try { t[key] = JSON.parse(row[i] || '[]'); } catch (e) { t[key] = []; } } else t[c] = row[i];
   });
   return t;
 }
