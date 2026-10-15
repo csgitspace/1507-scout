@@ -1,12 +1,13 @@
 # Runs the tests, then publishes the iPad scout app to GitHub Pages.
 # One-time setup: repo Settings -> Pages -> Source: "GitHub Actions".
 # Site: https://<owner>.github.io/<repo>/scout-app/
+# Guides (every PDF in docs/handoff/): https://<owner>.github.io/<repo>/guides/<file>.pdf
 name: Deploy scout app
 
 on:
   push:
     branches: [main]
-    paths: ['scout-app/**', 'shared/**', 'laptop/**', 'tests/**', '.github/workflows/pages.yml']
+    paths: ['scout-app/**', 'shared/**', 'laptop/**', 'tests/**', 'docs/handoff/*.pdf', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -36,10 +37,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}scout-app/
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble site (scout-app + the shared code it imports)
+      - name: Assemble site (scout-app + the shared code it imports, and the user guides)
         run: |
-          mkdir -p _site
+          mkdir -p _site/guides
           cp -r scout-app shared _site/
+          # Guides live outside scout-app/, so the iPad app's offline cache never sees them.
+          cp docs/handoff/*.pdf _site/guides/
           echo '<!DOCTYPE html><meta http-equiv="refresh" content="0; url=scout-app/">' > _site/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
