@@ -115,6 +115,8 @@
             <input id="s-pin" class="field-input" inputmode="numeric">
             <label for="s-tba">TBA read key <span id="tba-status" class="fine"></span></label>
             <input id="s-tba" class="field-input" type="password" autocomplete="off" placeholder="leave blank to keep the saved key">
+            <label for="s-m13">match13 API key (optional) <span id="m13-status" class="fine"></span></label>
+            <input id="s-m13" class="field-input" type="password" autocomplete="off" placeholder="m13_live_… — leave blank to keep the saved key">
           </div>
           <div>
             <label for="s-roster">Scout roster — one per line: <code>id, Name</code> (or just a name)</label>
@@ -185,7 +187,9 @@
         <p class="fine">Reference data for the pick team, fetched over the tethered phone and sent with each sync. It's never
           mixed into scouting records. <b>The Blue Alliance</b>: match results, rankings and OPR, every 3 minutes (needs the
           TBA read key). <b>Statbotics</b>: each team's EPA, every 30 minutes (event EPA if Statbotics tracks this event,
-          otherwise the team's season EPA). If either site is down, scanning and sync carry on.</p>
+          otherwise the team's season EPA). <b>match13</b> (needs its key in section 1): xP ratings, match forecasts and
+          projected ranks every 5 minutes, plus every team's season rating for the dashboard's Lookup screen every 6 hours.
+          If any site is down, scanning and sync carry on.</p>
         <div id="intel-detail" class="intel-detail"></div>
         <div class="actions">
           <button id="intel-refresh" class="btn primary">⟳ Fetch event data now</button>

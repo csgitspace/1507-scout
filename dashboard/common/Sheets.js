@@ -17,6 +17,8 @@ var TAB = {
   EXTERNAL: 'External',     // per team: Statbotics EPA, TBA OPR + rank — reference data, never scouting data
   RESULTS: 'Results',       // per played match: TBA scores
   PIT: 'Pit',               // every pit scouting record version — written only by the sync endpoint
+  FORECAST: 'Forecast',     // per match: match13's forecast (red win chance, predicted scores)
+  SEASON: 'Season',         // every team's match13 season rating, for the Lookup screen
 };
 
 var MENTOR_HEADERS = ['team', 'rank', 'tag', 'shared_note', 'shared_note_by', 'shared_note_at', 'updated_by', 'updated_at', 'picked'];
@@ -24,7 +26,11 @@ var PRIVATE_HEADERS = ['email', 'team', 'note', 'updated_at'];
 var MYPICKS_HEADERS = ['email', 'team', 'rank', 'tag', 'updated_at'];
 var LEADS_HEADERS = ['email', 'name', 'role'];
 var EXTERNAL_COLUMNS = ['team', 'epa', 'epa_auto', 'epa_teleop', 'epa_endgame', 'epa_fuel', 'epa_tower', 'epa_source',
-  'opr', 'rank', 'record', 'rp_avg'];
+  'opr', 'rank', 'record', 'rp_avg',
+  // match13: xP (points per match) with parts and spread; projected final rank (median, 5th–95th percentile)
+  'xp', 'xp_auto', 'xp_tele', 'xp_end', 'xp_sd', 'sim_rank', 'sim_lo', 'sim_hi'];
+var FORECAST_COLUMNS = ['match_key', 'match', 'red_win', 'red_score', 'blue_score'];
+var SEASON_COLUMNS = ['team', 'xp', 'xp_auto', 'xp_tele', 'xp_end', 'xp_sd', 'rank', 'percentile', 'epa', 'opr'];
 var RESULTS_COLUMNS = ['match_key', 'match', 'red1', 'red2', 'red3', 'blue1', 'blue2', 'blue3', 'red_score', 'blue_score', 'winner', 'played_at'];
 
 /**

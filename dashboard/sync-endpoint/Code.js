@@ -82,7 +82,7 @@ function handleSync_(ss, body, now) {
   var raw = getOrCreateSheet_(ss, TAB.RAW);
   var headers = ensureHeaderColumns_(raw, rawHeaders_());
   protectOwnerOnly_(raw, 'Scouting data — written only by the sync. Never edit.');
-  [TAB.SUMMARY, TAB.TEAMS, TAB.MATCHES, TAB.EXTERNAL, TAB.RESULTS].forEach(function (name) {
+  [TAB.SUMMARY, TAB.TEAMS, TAB.MATCHES, TAB.EXTERNAL, TAB.RESULTS, TAB.FORECAST].forEach(function (name) {
     protectOwnerOnly_(getOrCreateSheet_(ss, name), 'Written by the sync — edits would be overwritten.');
   });
   [TAB.MENTOR, TAB.PRIVATE].forEach(function (name, i) {
@@ -146,7 +146,18 @@ function handleSync_(ss, body, now) {
         return [m.key, matchLabel_(m.key)].concat(red, blue,
           [m.redScore, m.blueScore, m.winner || '', m.time ? new Date(m.time * 1000).toISOString() : '']);
       }));
+    writeTable_(getOrCreateSheet_(ss, TAB.FORECAST), FORECAST_COLUMNS,
+      (body.intel.forecasts || []).map(function (f) { return [f.key, matchLabel_(f.key), f.redWin, f.redScore, f.blueScore]; }));
     kvSet_(ss, 'intel_fetched', body.intel.fetched || {});
+  }
+  // 2c. match13 season ratings for the Lookup screen (big; the laptop sends them only when they change).
+  if (body.season && body.season.teams) {
+    var seasonSheet = getOrCreateSheet_(ss, TAB.SEASON);
+    writeTable_(seasonSheet, SEASON_COLUMNS, body.season.teams.map(function (t) {
+      return [t.team, t.xp, t.auto, t.tele, t.end, t.sd, t.rank, t.pct, t.epa, t.opr].map(function (v) { return v === null || v === undefined ? '' : v; });
+    }));
+    protectOwnerOnly_(seasonSheet, 'match13 season ratings — written by the sync.');
+    kvSet_(ss, 'season', { year: body.season.year, fetchedAt: body.season.fetchedAt || null, teams: body.season.teams.length });
   }
   if (body.health) kvSet_(ss, 'health', body.health);
 

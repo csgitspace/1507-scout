@@ -185,7 +185,7 @@ test('externalFor merges EPA, OPR and rank per team; record uses en dashes so Sh
   assert.equal(us.rank, 1);
   assert.equal(us.record, '2–0–0');
   assert.equal(x.external.find(e => e.team === 254).epa, '', 'no EPA -> blank, still has OPR');
-  assert.deepEqual(x.fetched, { tba: 111, statbotics: 222 });
+  assert.deepEqual(x.fetched, { tba: 111, statbotics: 222, match13: null });
   assert.equal(latestPlayed(store, EVENT), 'qm2');
 });
 

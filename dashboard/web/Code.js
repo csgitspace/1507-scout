@@ -317,8 +317,34 @@ function getNextMatch(matchKey) {
     out.red = side(chosen.teams.slice(0, 3));
     out.blue = side(chosen.teams.slice(3, 6));
     out.result = r ? { red: Number(r.red_score), blue: Number(r.blue_score), winner: r.winner } : null;
+    var fc = readTab_(ss, TAB.FORECAST).filter(function (f) { return String(f.match_key) === chosen.key; })[0];
+    out.forecast = fc && fc.red_win !== '' ? { redWin: Number(fc.red_win), red: Number(fc.red_score), blue: Number(fc.blue_score) } : null;
     out.ourColor = chosen.teams.slice(0, 3).indexOf(OUR_TEAM) >= 0 ? 'red' : chosen.teams.slice(3).indexOf(OUR_TEAM) >= 0 ? 'blue' : null;
     return out;
+  });
+}
+
+/**
+ * Lookup screen: any team number. match13's season rating (Season tab, synced
+ * by the laptop), plus everything we know if the team is at our event.
+ */
+function getTeamLookup(team) {
+  return friendly_(function () {
+    team = checkTeam_(team);
+    var ss = ss_();
+    var cfg = kvGetAll_(ss);
+    var season = readTab_(ss, TAB.SEASON).filter(function (r) { return Number(r.team) === team; })[0] || null;
+    var here = allTeams_(ss)[team] || null;
+    if (here) here.notes = (here.notes || []).slice(-6);
+    return {
+      team: team,
+      ourTeam: OUR_TEAM,
+      name: here && here.name ? here.name : '',
+      event: cfg.event || '', eventName: cfg.event_name || '',
+      season: season,
+      seasonInfo: cfg.season || null,   // { year, fetchedAt, teams } — null until the laptop has synced one
+      here: here,
+    };
   });
 }
 

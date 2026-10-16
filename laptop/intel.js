@@ -6,8 +6,12 @@
 //     changes). Event EPA when Statbotics tracks the event, else the team's
 //     season EPA.
 //
+//   - match13 (laptop/match13.js): xP ratings, match forecasts and projected
+//     ranks for the event (every 5 minutes), and every team's season rating
+//     for the dashboard's Lookup screen (every 6 hours). Needs a match13 key.
+//
 // This is never scouting data: it's kept in settings (`tbaIntel:<event>`,
-// `sbIntel:<event>`), not in `records`, and the dashboard shows it beside
+// `sbIntel:<event>`, `m13Intel:<event>`, `m13Season:<year>`), not in `records`, and the dashboard shows it beside
 // scouted stats rather than mixing it in. Every fetch is optional: if a site
 // is down or doesn't know the event, the last good data is kept and the
 // station shows why.
@@ -21,10 +25,13 @@
 
 import { createHash } from 'node:crypto';
 import { tbaGet } from './tba.js';
+import { fetchM13Event, fetchM13Season } from './match13.js';
 import { shortMatchKey, compareMatchKeys } from '../shared/schedule.js';
 
 const STATBOTICS = 'https://api.statbotics.io/v3';
 const STATBOTICS_EVERY_MS = 30 * 60 * 1000;
+const M13_EVENT_EVERY_MS = 5 * 60 * 1000;       // ~36 requests/hour; match13 allows 1000
+const M13_SEASON_EVERY_MS = 6 * 60 * 60 * 1000;
 const TIMEOUT_MS = 20000;
 
 const teamNumber = (k) => parseInt(String(k).replace(/^frc/, ''), 10);
@@ -203,12 +210,17 @@ export function eventTeams(store, event) {
 export function externalFor(store, event) {
   const tba = store.getSetting(`tbaIntel:${event}`) || {};
   const sb = store.getSetting(`sbIntel:${event}`) || {};
+  const m13 = store.getSetting(`m13Intel:${event}`) || {};
   const epa = Object.fromEntries((sb.teams || []).map(r => [r.team, r]));
+  const xp = Object.fromEntries((m13.teams || []).map(r => [r.team, r]));
+  const sim = m13.sim || {};
   const rank = Object.fromEntries((tba.rankings || []).map(r => [r.team, r]));
   const oprs = tba.oprs || {};
-  const teams = new Set([...Object.keys(epa), ...Object.keys(rank), ...Object.keys(oprs)].map(Number));
+  const teams = new Set([...Object.keys(epa), ...Object.keys(xp), ...Object.keys(rank), ...Object.keys(oprs)].map(Number));
   const external = [...teams].sort((a, b) => a - b).map(team => {
-    const e = epa[team] || {}, r = rank[team] || {};
+    const r = rank[team] || {}, x = xp[team] || {}, s = sim[team] || {};
+    // Statbotics first; if it has nothing for this team, match13's copy of the EPA (no breakdown).
+    const e = epa[team] || (x.epa !== null && x.epa !== undefined ? { epa: x.epa, source: 'match13' } : {});
     return {
       team,
       epa: e.epa ?? '', epa_auto: e.auto ?? '', epa_teleop: e.teleop ?? '', epa_endgame: e.endgame ?? '',
@@ -217,18 +229,30 @@ export function externalFor(store, event) {
       // En dashes: Sheets would turn "8-2-1" into a date.
       rank: r.rank ?? '', record: r.wins === undefined || r.wins === null ? '' : `${r.wins}–${r.losses}–${r.ties}`,
       rp_avg: r.rpAvg ?? '',
+      xp: x.xp ?? '', xp_auto: x.auto ?? '', xp_tele: x.tele ?? '', xp_end: x.end ?? '', xp_sd: x.sd ?? '',
+      sim_rank: s.rank ?? '', sim_lo: s.lo ?? '', sim_hi: s.hi ?? '',
     };
   });
   return {
     external,
     results: tba.results || [],
-    fetched: { tba: tba.fetchedAt || null, statbotics: sb.fetchedAt || null },
+    forecasts: m13.forecasts || [],
+    fetched: { tba: tba.fetchedAt || null, statbotics: sb.fetchedAt || null, match13: m13.fetchedAt || null },
   };
 }
 
 /** Short fingerprint so the sync only sends intel when it changed. */
 export function intelSignature(intel) {
-  return createHash('sha1').update(JSON.stringify([intel.external, intel.results])).digest('hex').slice(0, 16);
+  return createHash('sha1').update(JSON.stringify([intel.external, intel.results, intel.forecasts || []])).digest('hex').slice(0, 16);
+}
+
+/** match13 season ratings for the event's year (for Lookup), or null. Sent only when its fingerprint changes. */
+export function seasonFor(store, event) {
+  const year = Number(String(event || '').slice(0, 4));
+  const s = year ? store.getSetting(`m13Season:${year}`) : null;
+  if (!s || !s.teams || !s.teams.length) return null;
+  return { year, fetchedAt: s.fetchedAt, teams: s.teams,
+    sig: createHash('sha1').update(JSON.stringify(s.teams)).digest('hex').slice(0, 16) };
 }
 
 /** Latest match in `schedule` that TBA has a result for, or null. */
@@ -240,14 +264,59 @@ export function latestPlayed(store, event) {
   return played.sort(compareMatchKeys)[played.length - 1];
 }
 
-export function createIntel({ store, fetchImpl = fetch, now = () => Date.now(), statboticsEveryMs = STATBOTICS_EVERY_MS }) {
+export function createIntel({ store, fetchImpl = fetch, now = () => Date.now(), statboticsEveryMs = STATBOTICS_EVERY_MS,
+  m13EventEveryMs = M13_EVENT_EVERY_MS, m13SeasonEveryMs = M13_SEASON_EVERY_MS }) {
   const status = {
     tba: { lastAttempt: null, lastSuccess: null, lastError: null, results: 0, running: false },
     statbotics: { lastAttempt: null, lastSuccess: null, lastError: null, teams: 0, source: null, missing: [], running: false },
+    match13: { lastAttempt: null, lastSuccess: null, lastError: null, running: false },
+    season: { lastAttempt: null, lastSuccess: null, lastError: null, year: null, running: false },
   };
   let sbTeamsSig = null;
 
   const tbaKey = () => process.env.TBA_KEY || store.getSetting('tbaKey');
+  const m13Key = () => process.env.M13_KEY || store.getSetting('m13Key');
+
+  /** Runs a fetch with the shared bookkeeping: skip if already running, record success / error. */
+  async function track(s, fn) {
+    if (s.running) return;
+    s.running = true;
+    s.lastAttempt = now();
+    try {
+      await fn();
+      s.lastSuccess = now();
+      s.lastError = null;
+    } catch (err) {
+      s.lastError = err.message;
+    } finally {
+      s.running = false;
+    }
+  }
+
+  async function refreshMatch13() {
+    const event = store.getSetting('event');
+    const s = status.match13;
+    if (!event) { s.lastError = 'Set the event on Event setup first'; return; }
+    if (!m13Key()) { s.lastError = 'No match13 key — enter it on Event setup (optional)'; return; }
+    await track(s, async () => {
+      const data = await fetchM13Event(event, m13Key(), fetchImpl);
+      store.setSetting(`m13Intel:${event}`, { ...data, fetchedAt: now() });
+    });
+  }
+
+  async function refreshSeason() {
+    const event = store.getSetting('event');
+    const s = status.season;
+    const year = Number(String(event || '').slice(0, 4));
+    if (!year) { s.lastError = 'Set the event on Event setup first'; return; }
+    if (!m13Key()) { s.lastError = 'No match13 key — enter it on Event setup (optional)'; return; }
+    s.year = year;
+    await track(s, async () => {
+      const teams = await fetchM13Season(year, m13Key(), fetchImpl);
+      if (!teams.length) throw new Error(`match13 has no ${year} season ratings yet`);
+      store.setSetting(`m13Season:${year}`, { teams, fetchedAt: now() });
+    });
+  }
 
   async function refreshTba() {
     const event = store.getSetting('event');
@@ -295,32 +364,46 @@ export function createIntel({ store, fetchImpl = fetch, now = () => Date.now(), 
     }
   }
 
-  /** Called every sync cycle: TBA always, Statbotics when stale or the team list changed. */
+  /** Called every sync cycle: TBA always; Statbotics and match13 when stale (or the team list / year changed). */
   async function refreshDue() {
     const event = store.getSetting('event');
     const teamsSig = event ? `${event}:${eventTeams(store, event).join(',')}` : null;
-    const last = status.statbotics.lastAttempt;
-    const sbStale = last === null || now() - last >= statboticsEveryMs || teamsSig !== sbTeamsSig;
-    await Promise.all([refreshTba(), sbStale ? refreshStatbotics() : null]);
+    const stale = (s, every) => s.lastAttempt === null || now() - s.lastAttempt >= every;
+    const sbStale = stale(status.statbotics, statboticsEveryMs) || teamsSig !== sbTeamsSig;
+    const year = Number(String(event || '').slice(0, 4));
+    const seasonStale = stale(status.season, m13SeasonEveryMs) || (year && status.season.year !== year);
+    await Promise.all([
+      refreshTba(),
+      sbStale ? refreshStatbotics() : null,
+      m13Key() && stale(status.match13, m13EventEveryMs) ? refreshMatch13() : null,
+      m13Key() && seasonStale ? refreshSeason() : null,
+    ]);
   }
 
   async function refreshAll() {
-    await Promise.all([refreshTba(), refreshStatbotics()]);
+    await Promise.all([refreshTba(), refreshStatbotics(), refreshMatch13(), refreshSeason()]);
     return getStatus();
   }
 
   function getStatus() {
     const event = store.getSetting('event');
     const stored = (k) => (event ? store.getSetting(`${k}:${event}`) : null);
-    const tba = stored('tbaIntel'), sb = stored('sbIntel');
+    const tba = stored('tbaIntel'), sb = stored('sbIntel'), m13 = stored('m13Intel');
+    const year = Number(String(event || '').slice(0, 4));
+    const season = year ? store.getSetting(`m13Season:${year}`) : null;
     return {
       hasTbaKey: !!tbaKey(),
+      hasM13Key: !!m13Key(),
       tba: { ...status.tba, fetchedAt: tba ? tba.fetchedAt : null, results: tba ? tba.results.length : 0,
         rankings: tba ? tba.rankings.length : 0, oprs: tba ? Object.keys(tba.oprs).length : 0 },
       statbotics: { ...status.statbotics, fetchedAt: sb ? sb.fetchedAt : null, teams: sb ? sb.teams.length : 0,
         source: sb ? sb.source : null },
+      match13: { ...status.match13, fetchedAt: m13 ? m13.fetchedAt : null, teams: m13 ? m13.teams.length : 0,
+        forecasts: m13 ? m13.forecasts.length : 0, simmed: m13 ? Object.keys(m13.sim || {}).length : 0,
+        seasonTeams: season ? season.teams.length : 0, seasonFetchedAt: season ? season.fetchedAt : null,
+        seasonError: status.season.lastError },
     };
   }
 
-  return { refreshTba, refreshStatbotics, refreshDue, refreshAll, getStatus };
+  return { refreshTba, refreshStatbotics, refreshMatch13, refreshSeason, refreshDue, refreshAll, getStatus };
 }

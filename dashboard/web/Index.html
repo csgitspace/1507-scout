@@ -65,7 +65,7 @@
              padding: 10px 16px; border-radius: 10px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 92vw; }
     #toast.show { opacity: 1; } #toast.bad { border-color: var(--bad); background: #3a0d14; }
     nav.views { display: flex; gap: 6px; margin-top: 10px; }
-    nav.views button { flex: 1; min-width: 0; min-height: 38px; padding: 0 4px; border-radius: 8px; border: 1px solid #2b2b8a; background: rgba(0,0,0,.25); color: #bcdcff; font-weight: 800; font-size: .85rem; }
+    nav.views button { flex: 1; min-width: 0; min-height: 38px; padding: 0 3px; border-radius: 8px; border: 1px solid #2b2b8a; background: rgba(0,0,0,.25); color: #bcdcff; font-weight: 800; font-size: .78rem; line-height: 1.15; }
     nav.views button.on { background: var(--gold); color: #000; border-color: var(--gold); }
     .ext { color: #bcdcff; font-size: .88rem; margin-top: 3px; }
     .ext b { color: var(--text); }
@@ -127,6 +127,15 @@
     table.cmp th { color: var(--gold); font-size: 1rem; }
     table.cmp td.top { color: var(--gold); font-weight: 900; }
     .pit-kv { font-size: .85rem; margin-top: 6px; overflow-wrap: anywhere; }
+    /* Lookup + match13 */
+    .lookup-form { display: flex; gap: 8px; margin-bottom: 8px; }
+    .lookup-form input { flex: 1; min-width: 0; background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; font-size: 1.2rem; color: var(--text); }
+    .lookup-form button { border-radius: 8px; border: 1px solid var(--gold); background: var(--gold); color: #000; font-weight: 800; padding: 0 16px; }
+    .lookup-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+    .lookup-head .team { font-size: 2rem; color: var(--gold); }
+    .lookup-head a { color: #7ab0ff; font-weight: 700; font-size: .9rem; margin-left: auto; }
+    .forecast { text-align: center; color: var(--muted); margin: -4px 0 12px; font-size: .92rem; }
+    .forecast b { color: var(--text); }
   </style>
 </head>
 <body data-me="<?= me ?>">
@@ -140,6 +149,7 @@
       <button data-view="next">Next match</button>
       <button data-view="health">Data health</button>
       <button data-view="analyze">Analyze</button>
+      <button data-view="lookup">Lookup</button>
     </nav>
   </header>
   <main>
@@ -178,6 +188,17 @@
     <section id="v-next" hidden><div class="msg">Loading…</div></section>
     <section id="v-health" hidden><div class="msg">Loading…</div></section>
     <section id="v-analyze" hidden><div class="msg">Loading…</div></section>
+    <section id="v-lookup" hidden>
+      <div class="panel">
+        <h3>Look up a team</h3>
+        <form id="lookup-form" class="lookup-form">
+          <input id="lookup-input" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="Team number" autocomplete="off" aria-label="Team number">
+          <button type="submit">Look up</button>
+        </form>
+        <div class="chips" id="lookup-recent"></div>
+      </div>
+      <div id="lookup-result"><p class="hint">Any FRC team: match13's 2026 rating, plus everything we've scouted if they're at our event.</p></div>
+    </section>
     <p class="hint" id="me"></p>
   </main>
   <div id="toast"></div>
@@ -335,16 +356,28 @@
     return FILTER_IDS.some(function (id) { return $(id).value; });
   }
 
-  /** "EPA 42.1 (auto 10 · tele 25 · end 7) · OPR 38 · TBA #3 (8–2–0)" — outside data, shown apart from scouting. */
+  /** " (auto 25 · tele 130 · end −1) ±32" — match13 xP parts; works for External rows and Season rows. */
+  function xpParts(t) {
+    var p = [has(t.xp_auto) ? 'auto ' + t.xp_auto : null, has(t.xp_tele) ? 'tele ' + t.xp_tele : null,
+      has(t.xp_end) ? 'end ' + t.xp_end : null].filter(Boolean).join(' · ');
+    return (p ? ' (' + p + ')' : '') + (has(t.xp_sd) ? ' ±' + Math.round(t.xp_sd) : '');
+  }
+  /** " (1–6)" when the projected rank isn't settled yet. */
+  function simRange(t) { return has(t.sim_lo) && String(t.sim_lo) !== String(t.sim_hi) ? ' (' + t.sim_lo + '–' + t.sim_hi + ')' : ''; }
+
+  /** "EPA 42.1 (auto 10 · tele 25 · end 7) · xP 45 (…) · OPR 38 · TBA #3 (8–2–0) · Proj. rank #3 (1–6)" — outside data, apart from scouting. */
   function extLine(t) {
     var parts = [];
     if (has(t.epa)) {
       var bd = [has(t.epa_auto) ? 'auto ' + t.epa_auto : null, has(t.epa_teleop) ? 'tele ' + t.epa_teleop : null,
         has(t.epa_endgame) ? 'end ' + t.epa_endgame : null].filter(Boolean).join(' · ');
-      parts.push(h('span', null, (t.epa_source === 'season' ? 'Season EPA ' : 'EPA '), h('b', null, String(t.epa)), bd ? ' (' + bd + ')' : ''));
+      var src = t.epa_source === 'season' ? 'Season EPA ' : t.epa_source === 'match13' ? 'EPA (via match13) ' : 'EPA ';
+      parts.push(h('span', null, src, h('b', null, String(t.epa)), bd ? ' (' + bd + ')' : ''));
     }
+    if (has(t.xp)) parts.push(h('span', null, 'xP ', h('b', null, String(t.xp)), xpParts(t)));
     if (has(t.opr)) parts.push(h('span', null, 'OPR ', h('b', null, String(t.opr))));
     if (has(t.rank_tba)) parts.push(h('span', null, 'TBA ', h('b', null, '#' + t.rank_tba), t.record ? ' (' + t.record + ')' : ''));
+    if (has(t.sim_rank)) parts.push(h('span', null, 'Proj. rank ', h('b', null, '#' + t.sim_rank), simRange(t)));
     if (!parts.length) return null;
     var out = [];
     parts.forEach(function (p, i) { if (i) out.push(' · '); out.push(p); });
@@ -597,7 +630,8 @@
   function showView(name) {
     view = name;
     [].forEach.call(document.querySelectorAll('nav.views button'), function (b) { b.classList.toggle('on', b.dataset.view === name); });
-    ['pick', 'next', 'health', 'analyze'].forEach(function (v) { $('v-' + v).hidden = v !== name; });
+    ['pick', 'next', 'health', 'analyze', 'lookup'].forEach(function (v) { $('v-' + v).hidden = v !== name; });
+    if (name === 'lookup') setTimeout(function () { if (!lookupTeam) $('lookup-input').focus(); }, 0);
     if (name === 'analyze') renderAnalyze();   // from what's loaded; refreshView brings it up to date
     refreshView();
   }
@@ -607,6 +641,7 @@
   function refreshView() {
     if (view === 'pick' || view === 'analyze') return load();
     if (view === 'next') return loadNext();
+    if (view === 'lookup') return loadLookup();
     return loadHealth();
   }
   /** The header's sync chip, for the screens that don't load the pick list. */
@@ -657,6 +692,9 @@
       else body = [
         h('h2', { style: 'margin:4px 0 8px;color:var(--gold)' }, d.label + (nextKey ? '' : d.ourColor ? ' · our next match' : ' · next match')),
         d.result ? h('p', { class: 'result-line' }, 'Final: Red ' + d.result.red + ' – Blue ' + d.result.blue) : null,
+        d.forecast ? h('p', { class: 'forecast' }, 'match13 forecast: ',
+          h('b', null, d.forecast.redWin >= 0.5 ? 'Red ' + pct(d.forecast.redWin) : 'Blue ' + pct(1 - d.forecast.redWin)),
+          ' to win · ' + Math.round(d.forecast.red) + '–' + Math.round(d.forecast.blue)) : null,
         h('div', { class: 'alliances' }, allianceBox('red', d.red, d), allianceBox('blue', d.blue, d)),
         h('p', { class: 'hint' }, 'EPA is Statbotics\' estimate of points a team adds; "Season EPA" means Statbotics doesn\'t track this event, so it\'s from the 2026 season.'),
       ];
@@ -686,7 +724,8 @@
           h('span', { class: 'k' }, 'Waiting on laptop'), h('span', { class: hh && hh.pending ? 'bad' : '' }, hh ? String(hh.pending) + ' records' : '—'),
           h('span', { class: 'k' }, 'Records synced'), h('span', null, String(d.recordsTotal)),
           h('span', { class: 'k' }, 'TBA results'), h('span', null, agoText(d.intelFetched.tba, d.now)),
-          h('span', { class: 'k' }, 'Statbotics EPA'), h('span', null, agoText(d.intelFetched.statbotics, d.now))));
+          h('span', { class: 'k' }, 'Statbotics EPA'), h('span', null, agoText(d.intelFetched.statbotics, d.now)),
+          h('span', { class: 'k' }, 'match13'), h('span', null, agoText(d.intelFetched.match13, d.now))));
       if (!hh) {
         $('v-health').replaceChildren(fresh, h('div', { class: 'msg' }, 'No coverage report yet — it comes with the next sync from the scan station.'));
         return;
@@ -714,6 +753,77 @@
         h('div', { class: 'panel' }, h('h3', null, 'Records per scout'),
           pills(hh.perScout || [], '', function (s) { return s.scout + ': ' + s.records; })));
     }).catch(function (e) { $('v-health').replaceChildren(h('div', { class: 'msg error' }, e.message)); });
+  }
+
+  // ---------- lookup (any team: match13 season rating + what we know here) ----------
+  var lookupTeam = null;
+  var lookupRecent = [];
+  try { lookupRecent = JSON.parse(localStorage.getItem('lookupRecent') || '[]'); } catch (e) { /* storage blocked */ }
+
+  function renderRecent() {
+    $('lookup-recent').replaceChildren.apply($('lookup-recent'), lookupRecent.map(function (n) {
+      return h('button', { class: 'chip' + (n === lookupTeam ? ' on' : ''), onclick: function () { lookupGo(n); } }, String(n));
+    }));
+  }
+  function lookupGo(n) {
+    n = Number(n);
+    if (!(n >= 1 && n <= 99999 && Math.floor(n) === n)) { toast('Enter a team number', true); return; }
+    lookupTeam = n;
+    $('lookup-input').value = String(n);
+    lookupRecent = [n].concat(lookupRecent.filter(function (x) { return x !== n; })).slice(0, 8);
+    try { localStorage.setItem('lookupRecent', JSON.stringify(lookupRecent)); } catch (e) { /* storage blocked */ }
+    renderRecent();
+    $('lookup-result').replaceChildren(h('div', { class: 'msg' }, 'Looking up ' + n + '…'));
+    loadLookup();
+  }
+  $('lookup-form').addEventListener('submit', function (e) { e.preventDefault(); $('lookup-input').blur(); lookupGo($('lookup-input').value.trim()); });
+
+  function loadLookup() {
+    renderRecent();
+    if (!lookupTeam) return Promise.resolve();
+    var asked = lookupTeam;
+    return call('getTeamLookup', asked).then(function (d) {
+      if (asked === lookupTeam) renderLookup(d);
+    }).catch(function (e) { $('lookup-result').replaceChildren(h('div', { class: 'msg error' }, e.message)); });
+  }
+
+  function renderLookup(d) {
+    var s = d.season, t = d.here;
+    var kv = function (k, v) { return [h('span', { class: 'k' }, k), h('span', null, v)]; };
+    var info = d.seasonInfo;
+    var seasonPanel = h('div', { class: 'panel' }, h('h3', null, 'match13 ' + (info && info.year || '') + ' season (incl. offseason)'),
+      s ? h('div', { class: 'kv' },
+        kv('xP', [h('b', null, String(s.xp)), xpParts(s)]),
+        kv('Season rank', '#' + s.rank + (has(s.percentile) ? ' (top ' + Math.max(1, Math.round(100 - Number(s.percentile))) + '%)' : '')),
+        has(s.epa) ? kv('EPA', String(s.epa)) : null,
+        has(s.opr) ? kv('OPR', String(s.opr)) : null)
+        : h('p', { class: 'hint' }, info ? 'match13 has no ' + info.year + ' rating for team ' + d.team + '.'
+          : 'Season ratings arrive once the scan station has a match13 key and has synced.'),
+      info && info.fetchedAt ? h('p', { class: 'an-note' }, 'xP = points the team adds per match; ± = how much its scores swing. Updated ' +
+        agoText(info.fetchedAt, Date.now()) + '.') : null);
+
+    var herePanel;
+    if (t) {
+      herePanel = h('div', { class: 'panel' }, h('h3', null, 'At ' + (d.eventName || d.event)),
+        h('div', { class: 'badges' },
+          t.picked ? h('span', { class: 'badge picked' }, 'PICKED') : null,
+          t.tag ? h('span', { class: 'badge ' + ({ Target: 'High', Avoid: 'Low' }[t.tag] || '') }, 'Official: ' + (t.rank ? '#' + t.rank + ' ' : '') + t.tag) : null,
+          t.scoring_level ? h('span', { class: 'badge ' + t.scoring_level }, 'Scoring ' + t.scoring_level) : null,
+          t.bot_type ? h('span', { class: 'badge' }, t.bot_type) : null,
+          trenchBadge(t), shooterBadge(t)),
+        statsLine(t), autoLine(t), extLine(t),
+        t.shared_note ? h('div', { class: 'scout-note', style: 'border-left-color:var(--gold)' }, 'Pick team: ' + t.shared_note) : null,
+        (t.notes || []).slice().reverse().map(function (n) { return h('div', { class: 'scout-note' }, n.match + ': ' + n.text); }),
+        pitDetails(t));
+    } else {
+      herePanel = h('p', { class: 'hint' }, d.event ? 'Not on ' + (d.eventName || d.event) + '\'s team list, so we have no scouting for them.' : '');
+    }
+
+    $('lookup-result').replaceChildren(
+      h('div', { class: 'lookup-head' }, h('span', { class: 'team' }, String(d.team)), d.name ? h('span', { class: 'name' }, d.name) : null,
+        d.team === d.ourTeam ? h('span', { class: 'badge' }, 'That\'s us ⚡') : null,
+        h('a', { href: 'https://www.match13.com/team/' + d.team, target: '_blank', rel: 'noopener' }, 'match13 ↗')),
+      seasonPanel, herePanel);
   }
 
   // ---------- analyze (charts) ----------
@@ -904,7 +1014,8 @@
   var CMP_ROWS = [
     ['Fuel / match', 'avg_total', 1], ['Auto fuel', 'avg_auto', 1], ['Teleop fuel', 'avg_teleop', 1], ['Accuracy', 'accuracy', 1, pct],
     ['Climbs (any level)', 'climb_l1', 1, pct], ['Level 3 climb', 'climb_l3', 1, pct], ['Reliability', 'reliability', 1, pct],
-    ['Bot type', 'bot_type'], ['EPA', 'epa', 1], ['OPR', 'opr', 1], ['TBA rank', 'rank_tba', -1], ['Matches scouted', 'matches'],
+    ['Bot type', 'bot_type'], ['EPA', 'epa', 1], ['xP (match13)', 'xp', 1], ['OPR', 'opr', 1], ['TBA rank', 'rank_tba', -1],
+    ['Proj. rank', 'sim_rank', -1], ['Matches scouted', 'matches'],
     // [label, key, best direction, format, getter]: rows from routes, best auto and pit scouting
     ['Trench', null, 0, null, function (t) { return t.trench_label; }],
     ['Shooter (pit)', null, 0, null, function (t) { return t.shooter_label; }],
@@ -937,12 +1048,12 @@
     })), CMP_ROWS.map(function (row) {
       var vals = teams.map(function (t) {
         if (row[4]) return row[4](t);
-        return Number(t.matches) || row[1] === 'epa' || row[1] === 'opr' || row[1] === 'rank_tba' ? t[row[1]] : '';
+        return Number(t.matches) || ['epa', 'xp', 'opr', 'rank_tba', 'sim_rank'].indexOf(row[1]) >= 0 ? t[row[1]] : '';
       });
       var nums = vals.map(num).filter(function (v) { return v !== null; });
       var best = row[2] && nums.length > 1 ? (row[2] > 0 ? Math.max : Math.min).apply(null, nums) : null;
       return h('tr', null, h('td', null, row[0]), vals.map(function (v) {
-        var shown = !has(v) ? '—' : row[3] ? row[3](v) : (row[1] === 'rank_tba' ? '#' : '') + v;
+        var shown = !has(v) ? '—' : row[3] ? row[3](v) : (row[1] === 'rank_tba' || row[1] === 'sim_rank' ? '#' : '') + v;
         return h('td', { class: best !== null && num(v) === best ? 'top' : '' }, shown);
       }));
     }));

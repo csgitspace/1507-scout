@@ -283,3 +283,5 @@ stale.
   available (`docs/plans/m6-analyze-and-speed.md`)
 - 2026-10-15 · Milestone 7: pit scouting mode, trench/bump routes, best
   auto (`docs/plans/m7-pit-and-routes.md`)
+- 2026-10-15 · Milestone 8: match13 xP, forecasts, projected ranks, and
+  the Lookup team screen (`docs/plans/m8-match13-and-lookup.md`)

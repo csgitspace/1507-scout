@@ -271,7 +271,20 @@ predates the Official list / My list switch, Picked and the Analyze tab
 described below.
 
 - **Screens** (buttons under the header): **Pick list**, **Next match**,
-  **Data health**, **Analyze**.
+  **Data health**, **Analyze**, **Lookup**.
+- **match13** (www.match13.com, a second outside rating site, needs a key
+  on the scan station's Event setup):
+  - Cards, Next match and Compare show **xP** (match13's points-per-match
+    rating, with auto / tele / end and a ± spread) and **Proj. rank #3
+    (1–6)**, the projected final rank once the event is live.
+  - Next match shows **"match13 forecast: Red 62% to win · 148–131"**.
+  - If Statbotics has no EPA for a team, the card shows **"EPA (via
+    match13)"**.
+- **Lookup**: type any team number.
+  - Shows match13's season rating: xP, season rank and top %, EPA, OPR.
+  - If the team is at our event, it also shows our scouting, best auto,
+    trench / shooter, pit answers, the official tag and the shared note.
+  - Has a **match13 ↗** link and remembers recent lookups.
 - **Access:** open the link and sign in with your **@warlocks1507.com**
   Google account. Only warlocks1507.com accounts can open it. The scouting
   Sheet must be shared with you as **Editor** (that sharing *is* the

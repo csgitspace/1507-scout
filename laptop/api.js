@@ -7,7 +7,7 @@
 //   GET  /api/coverage        missing-scan grid
 //   POST /api/played          { key | null }  "played through" marker
 //   GET  /api/records         current records + recent scan log
-//   POST /api/settings        { event, pin, roster, tbaKey }
+//   POST /api/settings        { event, pin, roster, tbaKey, m13Key }
 //   POST /api/schedule        { text } | { practice: { teams, count } }
 //   POST /api/schedule/tba    import schedule + teams from The Blue Alliance
 //   GET  /api/codes           iPad config codes (one per station + Pit scout) + schedule parts
@@ -75,6 +75,7 @@ export function createHandler({ store, sync = null, intel = null, fetchImpl = fe
       roster,
       rosterText: rosterToText(roster),
       hasTbaKey: !!(process.env.TBA_KEY || store.getSetting('tbaKey')),
+      hasM13Key: !!(process.env.M13_KEY || store.getSetting('m13Key')),
       playedThrough: ev ? store.getSetting(`playedThrough:${ev}`) : null,
       matchKeys: orderedKeys(schedule),
       scheduleRev: ev ? store.getSetting(`scheduleRev:${ev}`) : null,
@@ -118,10 +119,13 @@ export function createHandler({ store, sync = null, intel = null, fetchImpl = fe
       if (!EVENT_RE.test(ev)) throw new HttpError(400, 'Event code must be the TBA key, e.g. 2026nyro (lowercase letters and digits)');
       if (!/^\d{4,8}$/.test(pin)) throw new HttpError(400, 'Lead PIN must be 4–8 digits');
       if (!roster.length) throw new HttpError(400, 'Add at least one scout to the roster');
+      const m13Key = typeof body.m13Key === 'string' ? body.m13Key.trim() : '';
+      if (m13Key && !/^m13_[a-z]+_[A-Za-z0-9]{10,}$/.test(m13Key)) throw new HttpError(400, 'That doesn\'t look like a match13 key (it starts with m13_live_)');
       store.setSetting('event', ev);
       store.setSetting('pin', pin);
       store.setSetting('roster', roster);
       if (typeof body.tbaKey === 'string' && body.tbaKey.trim()) store.setSetting('tbaKey', body.tbaKey.trim());
+      if (m13Key) store.setSetting('m13Key', m13Key);
       return state();
     },
 

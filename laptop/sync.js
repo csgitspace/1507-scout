@@ -17,8 +17,10 @@ import { intelSignature } from './intel.js';
 
 // intelFor(event) -> { external, results, fetched } (laptop/intel.js externalFor): sent only when it changes.
 // healthFor(event) -> Data health payload (laptop/coverage.js health): sent every run, it's small.
+// seasonFor(event) -> { year, fetchedAt, teams, sig } (laptop/intel.js): match13 season ratings for Lookup;
+//   big, so sent only when sig changes.
 export function createSync({ store, dashboardFile = null, tokenSource = null, fetchImpl = fetch, now = () => Date.now(), batchSize = 300,
-  intelFor = null, healthFor = null }) {
+  intelFor = null, healthFor = null, seasonFor = null }) {
   const status = { lastAttempt: null, lastSuccess: null, lastError: null, lastAdded: 0, running: false };
 
   function config() {
@@ -112,6 +114,8 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
       const intel = intelFor ? intelFor(event) : null;
       const intelSig = intel ? intelSignature(intel) : null;
       let sendIntel = !!intel && intelSig !== store.getSetting(`syncedIntel:${event}`);
+      const season = seasonFor ? seasonFor(event) : null;
+      let sendSeason = !!season && season.sig !== store.getSetting(`syncedSeason:${season.year}`);
       let added = 0;
       for (let round = 0; round < 10; round++) {
         const recs = store.unsyncedRecords(event, batchSize);
@@ -127,6 +131,7 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
           body.teams = store.teams(event);
         }
         if (sendIntel) body.intel = intel;
+        if (sendSeason) body.season = { year: season.year, fetchedAt: season.fetchedAt, teams: season.teams };
         // "waiting" = what's still on the laptop once this request lands
         if (healthFor) body.health = { ...healthFor(event), pending: Math.max(0, store.countUnsynced(event) - recs.length) };
         const res = await post(cfg.url, body);
@@ -136,6 +141,7 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
         store.markPitSynced((res.acceptedPit || []).filter(id => sentPit.has(id)), now());
         if (sendMeta) { store.setSetting(`syncedMeta:${event}`, metaSig); sendMeta = false; }
         if (sendIntel) { store.setSetting(`syncedIntel:${event}`, intelSig); sendIntel = false; }
+        if (sendSeason) { store.setSetting(`syncedSeason:${season.year}`, season.sig); sendSeason = false; }
         added += (res.added || 0) + (res.addedPit || 0);
         if (recs.length < batchSize && pits.length < batchSize) break;
       }

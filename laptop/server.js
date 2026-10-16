@@ -18,7 +18,7 @@ import { openDb } from './db.js';
 import { createHandler } from './api.js';
 import { createSync } from './sync.js';
 import { createTokenSource } from './google-auth.js';
-import { createIntel, externalFor, latestPlayed } from './intel.js';
+import { createIntel, externalFor, latestPlayed, seasonFor } from './intel.js';
 import { health } from './coverage.js';
 
 const PORT = Number(process.env.PORT) || 1507;
@@ -55,6 +55,7 @@ const intel = createIntel({ store });
 const sync = createSync({
   store, dashboardFile: join(DATA, 'dashboard.json'), tokenSource,
   intelFor: (ev) => externalFor(store, ev),
+  seasonFor: (ev) => seasonFor(store, ev),
   healthFor: (ev) => health(store.schedule(ev), store.currentRecords(ev), {
     playedThrough: store.getSetting(`playedThrough:${ev}`), resultsThrough: latestPlayed(store, ev),
     roster: store.getSetting('roster', []),

@@ -254,6 +254,7 @@ function fillSetup() {
   $('s-pin').value ||= state.pin || '';
   $('s-roster').value ||= state.rosterText || '';
   $('tba-status').textContent = state.hasTbaKey ? '(saved ✓)' : '(not set)';
+  $('m13-status').textContent = state.hasM13Key ? '(saved ✓)' : '(not set)';
   $('sched-status').textContent = state.matchKeys.length
     ? `— ${state.matchKeys.length} matches loaded (rev ${state.scheduleRev})${state.teams ? `, ${state.teams} teams` : ''}`
     : '— none loaded';
@@ -268,9 +269,10 @@ $('settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
     state = await api('/api/settings', {
-      event: $('s-event').value, pin: $('s-pin').value, roster: $('s-roster').value, tbaKey: $('s-tba').value,
+      event: $('s-event').value, pin: $('s-pin').value, roster: $('s-roster').value, tbaKey: $('s-tba').value, m13Key: $('s-m13').value,
     });
     $('s-tba').value = '';
+    $('s-m13').value = '';
     $('s-roster').value = state.rosterText;
     message('settings-msg', `Saved. Scout IDs: ${state.roster.map(s => s.id).join(', ')}`);
     await loadState();
@@ -369,6 +371,12 @@ function renderIntel(st) {
       : { cls: 'bad', text: 'TBA: no read key — enter it in section 1' },
     intelPart('Statbotics', st.statbotics, sbWhat),
   ];
+  if (st.hasM13Key && st.match13) {
+    const m = st.match13;
+    const what = `${m.teams} team xPs, ${m.forecasts} forecasts${m.simmed ? `, ${m.simmed} projected ranks` : ''}` +
+      `${m.seasonTeams ? `, ${m.seasonTeams} season ratings` : m.seasonError ? ` · season: ⚠ ${m.seasonError}` : ''}`;
+    parts.push(intelPart('match13', m, what));
+  }
   const line = $('intel-line');
   line.className = `sync-line ${parts.some(p => p.cls === 'bad') ? 'bad' : parts.every(p => p.cls === 'ok') ? 'ok' : ''}`;
   line.replaceChildren(...parts.map(p => h('div', { class: 'fine' }, p.text)));
