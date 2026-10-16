@@ -89,12 +89,13 @@
     <h3>Is it up to date?</h3>
     <p>The green chip in the header says <span class="ui">Synced N min ago</span>. That's the last time the scan station pushed new scouting data.
       It turns <b>red with "STALE"</b> after 10 minutes. If you see that, tell the scouting lead (usually the phone tether at the scan station).</p>
-    <h3>The four screens</h3>
+    <h3>The five screens</h3>
     <ul>
       <li><span class="ui">Pick list</span>: the ranked list (most of this guide).</li>
-      <li><span class="ui">Next match</span>: the six teams in our next match, with their stats and notes.</li>
+      <li><span class="ui">Next match</span>: the six teams in our next match, with their stats and notes, and match13's forecast.</li>
       <li><span class="ui">Data health</span>: missing scans, scouting mistakes, and how fresh the data is.</li>
       <li><span class="ui">Analyze</span>: charts and team comparison (section 5).</li>
+      <li><span class="ui">Lookup</span>: any team by number (section 6).</li>
     </ul>
   </div>
   <figure><img src="screenshots/pick-list/pl-top.png" alt="Top of the pick list"><figcaption>Header, list switch, "Our robot needs", filters, Best available</figcaption></figure>
@@ -148,12 +149,18 @@
             </ul></li>
           <li><b>Shooter</b>, from pit scouting, e.g. "Turret ×2 · shoots moving"</li>
         </ul>
-        Section 6 explains how each is worked out.</li>
+        Section 7 explains how each is worked out.</li>
       <li><b>Scouted stats</b>: fuel per match (auto in brackets), shooting accuracy, best climb level and how often, matches scouted. Any reliability problems appear after ⚠ (no-show, broke down, dead in auto).</li>
       <li><b>Best auto</b>: the start position where this team scored the most auto fuel in the matches we scouted, e.g. "Best auto: Left of Hub — 7.5 fuel, climbs 50% (4 runs)".
         It's followed by the start positions the team <i>told</i> our pit scout it can run.</li>
-      <li><b>Outside data</b> (blue line): Statbotics <b>EPA</b>, The Blue Alliance <b>OPR</b>, event rank and record.
-        "Season EPA" means Statbotics doesn't track this event, so the number is from the team's whole 2026 season.</li>
+      <li><b>Outside data</b> (blue line):
+        <ul>
+          <li>Statbotics <b>EPA</b>. "Season EPA" means Statbotics doesn't track this event, so the number is from the team's whole 2026 season.
+            "EPA (via match13)" appears when Statbotics has nothing for the team.</li>
+          <li>match13 <b>xP</b> with its auto / tele / end parts and a ± spread (section 6)</li>
+          <li>The Blue Alliance <b>OPR</b>, event rank and record</li>
+          <li><b>Proj. rank</b>, e.g. "#3 (1–6)", once the event is live</li>
+        </ul></li>
       <li><b>Target / Backup / Avoid</b> tags. The card's left edge turns green, blue or red.</li>
       <li><b>Shared note</b>: visible to the whole pick team, signed with who wrote it. Only pick leads can edit it.</li>
       <li><b>My private note</b>: only you see it in the app. It saves when you tap outside the box.</li>
@@ -273,7 +280,39 @@
   </div>
 </div>
 
-<h2>6. Where the numbers come from</h2>
+<h2>6. Look up a team, and match13</h2>
+<p><b>match13</b> (match13.com) is a second outside rating site, used alongside Statbotics.
+  The scan station fetches it over the tethered phone every few minutes, and it's never mixed into our scouting numbers. It gives us three things:</p>
+<ul>
+  <li><b>xP</b>: the points a team adds to its alliance per match, split into auto / tele / end. The <b>±</b> is how much its scores swing from match to match:
+    ±10 is steady, ±40 is boom-or-bust.</li>
+  <li><b>Proj. rank</b>: match13 simulates the rest of the event and shows the team's likely final rank, with a range (5th–95th percentile).
+    It tells you who will probably be an alliance captain, and so who's likely to still be available when we pick.</li>
+  <li><b>Forecasts</b>: on <span class="ui">Next match</span>, e.g. "match13 forecast: Red 62% to win · 148–131".</li>
+</ul>
+<div class="row wide">
+  <div>
+    <h3>Lookup</h3>
+    <p>Tap <span class="ui">Lookup</span>, type any team number, and tap <span class="ui">Look up</span>. It works for any FRC team, not just teams at our event.</p>
+    <ul>
+      <li><b>match13 season</b>: the team's 2026 xP (offseason play included), its season rank and "top N%", EPA and OPR.</li>
+      <li><b>At our event</b> (if they're here): the same details as their pick-list card:
+        <ul>
+          <li>official tag and rank</li>
+          <li>scouted stats, best auto, trench and shooter</li>
+          <li>event xP and projected rank</li>
+          <li>the pick team's shared note, scout notes and pit answers</li>
+        </ul></li>
+      <li><b>match13 ↗</b> opens the team's full history on match13.com.</li>
+      <li>Your recent lookups stay as buttons under the search box, on your phone only.</li>
+    </ul>
+    <p class="small">Lookup is read-only. To tag or rank a team, use the pick list.</p>
+    <figure style="margin-top:8px;max-width:2.6in"><img src="screenshots/pick-list/pl-next-match.png" alt="Next match with the match13 forecast"><figcaption>Next match: match13's forecast, xP and projected rank</figcaption></figure>
+  </div>
+  <figure><img src="screenshots/pick-list/pl-lookup.png" alt="Lookup screen"><figcaption>Lookup: match13 season rating, plus everything we know at our event</figcaption></figure>
+</div>
+
+<h2>7. Where the numbers come from</h2>
 <div class="flow">
   <div><b>Scout</b>watches one robot, records on an offline iPad</div>
   <div><b>QR code</b>carries the record to the scan station</div>
@@ -303,6 +342,8 @@
   <tr><td><b>Best auto</b></td><td>Scouted matches grouped by starting position. The position with the highest average auto fuel wins, with auto climb rate as the tie-breaker. "(4 runs)" is how many matches it's based on.</td></tr>
   <tr><td><b>Shooter, drivetrain, hopper, claimed climb</b></td><td>From pit scouting: the newest answer for each team. A pit scout visits each team's pit with an iPad in "Pit scout" mode.</td></tr>
   <tr><td><b>EPA, OPR, TBA rank</b></td><td>Fetched from Statbotics and The Blue Alliance. Shown alongside our numbers, never mixed into them.</td></tr>
+  <tr><td><b>xP, Proj. rank, forecast</b></td><td>Fetched from match13 every 5 minutes. Lookup's season ratings are fetched every 6 hours. xP is the team's rating after its latest match here (before it plays, its rating coming in).
+    Proj. rank is the middle of match13's simulated final ranks, and the range covers 90% of them.</td></tr>
 </table>
 
 <div class="box warn">
@@ -314,7 +355,7 @@
   </ul>
 </div>
 
-<h2>7. If something's wrong</h2>
+<h2>8. If something's wrong</h2>
 <table>
   <tr><th style="width:36%">You see</th><th>Do this</th></tr>
   <tr><td>"This app is missing a Google permission…"</td><td>A box was unticked when you authorized. Go to <b>myaccount.google.com/connections</b>, remove "Warlocks 1507 Pick List", reopen the page and tick every box.</td></tr>
@@ -324,6 +365,8 @@
   <tr><td>Tag, order or note buttons are greyed out</td><td>You're a viewer on the official list. Switch to <b>My list</b>, or ask to be added as a pick lead.</td></tr>
   <tr><td>"Not scouted yet" on a card</td><td>The team is at the event but no scout record has synced yet. EPA, OPR and any pit scouting still show.</td></tr>
   <tr><td>No trench badge, shooter or pit details</td><td>Nobody has pit scouted that team yet, and scouts haven't seen it under the trench. Ask the scouting lead (the scan station's Coverage tab shows which pits are still to visit).</td></tr>
+  <tr><td>Lookup: "Season ratings arrive once the scan station has a match13 key…"</td><td>The scan station hasn't synced match13's season list yet. It needs the match13 key (Event setup) and one sync over the phone tether.</td></tr>
+  <tr><td>No xP, forecast or Proj. rank</td><td>Forecasts need the match schedule. Projected ranks only exist while the event is live. Otherwise, check the scan station's Event data panel for a match13 message.</td></tr>
   <tr><td>Analyze: "Match-by-match data arrives with the first sync…"</td><td>Wait for the next sync from the scan station.</td></tr>
 </table>
 
