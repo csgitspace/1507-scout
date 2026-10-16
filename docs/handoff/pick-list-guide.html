@@ -140,21 +140,38 @@
           <li><b>bot type</b> (Scorer, Feeder, Defense or Hybrid)</li>
           <li><b>Strength</b> (draft)</li>
           <li><b>Fit</b>, with the reason, e.g. "Fit High: L3 80%, avg 41 fuel"</li>
+          <li><b>Trench</b>, where what scouts <i>saw</i> beats what the pit <i>said</i>:
+            <ul>
+              <li><b>Trench ✓ (seen 3/5)</b> (green): scouts saw it drive under the trench</li>
+              <li><b>Trench (pit says)</b>: only the team's word so far; "not seen in N" once scouts have watched it</li>
+              <li><b>Bump only</b> (red): the pit said no, or scouts saw only the bump in 3+ matches</li>
+            </ul></li>
+          <li><b>Shooter</b>, from pit scouting, e.g. "Turret ×2 · shoots moving"</li>
         </ul>
         Section 6 explains how each is worked out.</li>
       <li><b>Scouted stats</b>: fuel per match (auto in brackets), shooting accuracy, best climb level and how often, matches scouted. Any reliability problems appear after ⚠ (no-show, broke down, dead in auto).</li>
+      <li><b>Best auto</b>: the start position where this team scored the most auto fuel in the matches we scouted, e.g. "Best auto: Left of Hub — 7.5 fuel, climbs 50% (4 runs)".
+        It's followed by the start positions the team <i>told</i> our pit scout it can run.</li>
       <li><b>Outside data</b> (blue line): Statbotics <b>EPA</b>, The Blue Alliance <b>OPR</b>, event rank and record.
         "Season EPA" means Statbotics doesn't track this event, so the number is from the team's whole 2026 season.</li>
       <li><b>Target / Backup / Avoid</b> tags. The card's left edge turns green, blue or red.</li>
       <li><b>Shared note</b>: visible to the whole pick team, signed with who wrote it. Only pick leads can edit it.</li>
       <li><b>My private note</b>: only you see it in the app. It saves when you tap outside the box.</li>
       <li><b>Scout notes (N)</b>: tap to read what scouts wrote about this robot, newest first.</li>
+      <li><b>Pit scouting (by name)</b>: tap to see what the team told our pit scout:
+        <ul>
+          <li>drivetrain, trench and bump, hopper capacity</li>
+          <li>shooter type, number of shooters, shoots while moving</li>
+          <li>auto starts, claimed best auto, climbs in auto, their autos</li>
+          <li>claimed highest climb, notes</li>
+        </ul>
+        Treat these as claims, and check them against the scouted numbers above.</li>
     </ul>
     <h3>Our robot needs</h3>
-    <p>Pick leads tap the gaps in <i>our</i> robot (More scoring, Auto scoring, Reliable climber, Level 3 climber, Defender, Feeder).
+    <p>Pick leads tap the gaps in <i>our</i> robot (More scoring, Auto scoring, Reliable climber, Level 3 climber, Defender, Feeder, Trench bot).
       Every team's <b>Fit</b> is worked out against those gaps, so set them before you sort by Fit.</p>
     <h3>Filters and sort</h3>
-    <p>Narrow the list by Scoring, Bot type, Strength, Fit or Tag, or hide picked teams.
+    <p>Narrow the list by Scoring, Bot type, Strength, Fit, Tag or <b>Trench</b> (Trench bot / Bump only), or hide picked teams.
       Sort by Pick order, EPA, Scouted fuel or TBA rank. Team 1507 isn't on the list, since we can't pick ourselves.</p>
   </div>
   <figure><img src="screenshots/pick-list/pl-card.png" alt="A team card"><figcaption>A team card on the official list (pick lead view)</figcaption></figure>
@@ -191,7 +208,8 @@
 <div class="row wide">
   <div>
     <h3>Compare teams</h3>
-    <p>Choose up to three teams. The table lines up their scouted stats, EPA, OPR and TBA rank, and the best value in each row is gold.
+    <p>Choose up to three teams. The table lines up their scouted stats, EPA, OPR and TBA rank, then trench, shooter, drivetrain, best auto, hopper and claimed climb.
+      The best value in each row is gold. Look at best auto side by side to check whether two partners' autos would start from the same place.
       It starts with the top two of the official list.</p>
     <h3>Match by match</h3>
     <p>Fuel each compared team scored in each of its matches, in the order they played. A gap means a no-show.
@@ -279,6 +297,11 @@
   <tr><td><b>Bot type</b></td><td>The role scouts recorded most often (Scorer / Feeder / Defense). <b>Hybrid</b> if no role reaches 55% of matches.</td></tr>
   <tr><td><b>Strength</b> <i>(draft)</i></td><td>Scoring rank × reliability, split into thirds.</td></tr>
   <tr><td><b>Fit</b> <i>(draft)</i></td><td>How well the team covers the gaps ticked under "Our robot needs", scaled down for low reliability. High at 60% or more, Mid at 30% or more.</td></tr>
+  <tr><td><b>Trench</b></td><td>Scouts tick "Drove through: Under the trench / Over the bump" each match. Any sighting under the trench makes it <b>Trench ✓</b>.
+    Otherwise the pit's answer is shown. <b>Bump only</b> means the pit said it doesn't fit, or scouts saw only the bump in 3+ matches.
+    For Fit, a sighting counts fully, and the pit's word counts partly, less once scouts have watched 3+ matches without seeing it.</td></tr>
+  <tr><td><b>Best auto</b></td><td>Scouted matches grouped by starting position. The position with the highest average auto fuel wins, with auto climb rate as the tie-breaker. "(4 runs)" is how many matches it's based on.</td></tr>
+  <tr><td><b>Shooter, drivetrain, hopper, claimed climb</b></td><td>From pit scouting: the newest answer for each team. A pit scout visits each team's pit with an iPad in "Pit scout" mode.</td></tr>
   <tr><td><b>EPA, OPR, TBA rank</b></td><td>Fetched from Statbotics and The Blue Alliance. Shown alongside our numbers, never mixed into them.</td></tr>
 </table>
 
@@ -299,7 +322,8 @@
   <tr><td>Header says <b>STALE</b></td><td>No sync for 10+ minutes. Tell the scouting lead; the scan station's phone tether is the usual cause. What you see is still the last good data.</td></tr>
   <tr><td>"saved copy (couldn't refresh)"</td><td>Your phone lost its connection. You're seeing your last copy; it refreshes on its own once you're back online.</td></tr>
   <tr><td>Tag, order or note buttons are greyed out</td><td>You're a viewer on the official list. Switch to <b>My list</b>, or ask to be added as a pick lead.</td></tr>
-  <tr><td>"Not scouted yet" on a card</td><td>The team is at the event but no scout record has synced yet. EPA and OPR still show.</td></tr>
+  <tr><td>"Not scouted yet" on a card</td><td>The team is at the event but no scout record has synced yet. EPA, OPR and any pit scouting still show.</td></tr>
+  <tr><td>No trench badge, shooter or pit details</td><td>Nobody has pit scouted that team yet, and scouts haven't seen it under the trench. Ask the scouting lead (the scan station's Coverage tab shows which pits are still to visit).</td></tr>
   <tr><td>Analyze: "Match-by-match data arrives with the first sync…"</td><td>Wait for the next sync from the scan station.</td></tr>
 </table>
 

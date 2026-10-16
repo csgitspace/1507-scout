@@ -548,9 +548,11 @@ described below.
 - **Picked** / **Best available** for alliance selection
 - a pick list that opens instantly from a saved copy
 
-**Ideas for later:**
-- a server-side cache, if the pick list still feels slow
-- per-match trend charts once there are more matches per team (districts)
+**Ideas for later:** see `docs/future-plans.md`. Highlights:
+- a game configuration screen so next year's questions need no code
+- archiving an event and starting a new one
+- pit photos
+- auto-start conflict warnings in the alliance builder
 
 ---
 

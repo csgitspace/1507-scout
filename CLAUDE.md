@@ -95,7 +95,9 @@ repo.
 - Nothing in the above requires venue Wi-Fi or a team-run network.
 
 Anything beyond this (TBA fetch, award-scouting notes, elaborate
-dashboard filtering) is valuable but not blocking for v1.
+dashboard filtering) is valuable but not blocking for v1. Upgrade ideas
+(game configuration screen, event archive, etc.) are collected in
+`docs/future-plans.md`.
 
 ## Repo layout
 
