@@ -8,7 +8,7 @@
 // ==============================================================================
 
 import { DatabaseSync } from 'node:sqlite';
-import { recordKey } from '../shared/codec.js';
+import { recordKey, pitRecordKey } from '../shared/codec.js';
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -76,7 +76,42 @@ CREATE TABLE IF NOT EXISTS teams (
   event TEXT NOT NULL, team INTEGER NOT NULL, name TEXT,
   PRIMARY KEY (event, team)
 );
+
+-- Pit scouting records (one team, asked in its pit). Same rules as records:
+-- append-only, a correction is a newer row with the same team + scout.
+CREATE TABLE IF NOT EXISTS pit_records (
+  id             INTEGER PRIMARY KEY,
+  qr             TEXT    NOT NULL UNIQUE,
+  event          TEXT    NOT NULL,
+  rkey           TEXT    NOT NULL,       -- pit|team|scout (shared/codec.js pitRecordKey)
+  team           INTEGER NOT NULL,
+  scout_id       TEXT    NOT NULL,
+  ts             INTEGER NOT NULL,
+  app_version    TEXT,
+  schema_version INTEGER NOT NULL,
+  values_json    TEXT    NOT NULL,
+  received_at    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS pit_key ON pit_records (event, rkey);
+CREATE TRIGGER IF NOT EXISTS pit_no_update BEFORE UPDATE ON pit_records BEGIN SELECT RAISE(ABORT, 'pit records are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS pit_no_delete BEFORE DELETE ON pit_records BEGIN SELECT RAISE(ABORT, 'pit records are append-only'); END;
+CREATE VIEW IF NOT EXISTS current_pit AS
+  SELECT p.* FROM pit_records p
+  WHERE NOT EXISTS (
+    SELECT 1 FROM pit_records n
+    WHERE n.event = p.event AND n.rkey = p.rkey
+      AND (n.ts > p.ts OR (n.ts = p.ts AND n.id > p.id)));
+CREATE TABLE IF NOT EXISTS pit_sync_log (
+  pit_id    INTEGER PRIMARY KEY REFERENCES pit_records(id),
+  synced_at INTEGER NOT NULL
+);
 `;
+
+/** Columns added after a database was first created (CREATE TABLE IF NOT EXISTS won't add them). */
+function migrate(db) {
+  const cols = db.prepare('PRAGMA table_info(scans)').all().map(c => c.name);
+  if (!cols.includes('pit_id')) db.exec('ALTER TABLE scans ADD COLUMN pit_id INTEGER REFERENCES pit_records(id)');
+}
 
 function rowToRecord(row) {
   if (!row) return null;
@@ -87,12 +122,13 @@ function rowToRecord(row) {
 export function openDb(file = ':memory:') {
   const db = new DatabaseSync(file);
   db.exec(SCHEMA);
+  migrate(db);
 
   const q = {
     getSetting: db.prepare('SELECT value FROM settings WHERE key = ?'),
     setSetting: db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'),
-    insertScan: db.prepare(`INSERT INTO scans (scanned_at, raw, source, accepted, outcome, reason, record_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)`),
+    insertScan: db.prepare(`INSERT INTO scans (scanned_at, raw, source, accepted, outcome, reason, record_id, pit_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
     recordByQr: db.prepare('SELECT * FROM records WHERE qr = ?'),
     insertRecord: db.prepare(`INSERT INTO records (qr, event, rkey, match_key, team, scout_id, station, ts,
                               app_version, schema_version, values_json, received_at)
@@ -101,9 +137,20 @@ export function openDb(file = ':memory:') {
     currentAll: db.prepare('SELECT * FROM current_records WHERE event = ? ORDER BY received_at DESC, id DESC'),
     otherScouts: db.prepare(`SELECT * FROM current_records
                              WHERE event = ? AND match_key = ? AND team = ? AND scout_id <> ?`),
-    recentScans: db.prepare(`SELECT s.*, r.match_key, r.team, r.station, r.scout_id
-                             FROM scans s LEFT JOIN records r ON r.id = s.record_id
+    recentScans: db.prepare(`SELECT s.*, r.match_key, COALESCE(r.team, p.team) AS team, r.station,
+                               COALESCE(r.scout_id, p.scout_id) AS scout_id, s.pit_id IS NOT NULL AS is_pit
+                             FROM scans s LEFT JOIN records r ON r.id = s.record_id LEFT JOIN pit_records p ON p.id = s.pit_id
                              ORDER BY s.id DESC LIMIT ?`),
+    pitByQr: db.prepare('SELECT * FROM pit_records WHERE qr = ?'),
+    insertPit: db.prepare(`INSERT INTO pit_records (qr, event, rkey, team, scout_id, ts, app_version, schema_version, values_json, received_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+    currentPitFor: db.prepare('SELECT * FROM current_pit WHERE event = ? AND rkey = ?'),
+    currentPit: db.prepare('SELECT * FROM current_pit WHERE event = ? ORDER BY team, ts DESC'),
+    unsyncedPit: db.prepare(`SELECT p.* FROM pit_records p LEFT JOIN pit_sync_log s ON s.pit_id = p.id
+                             WHERE s.pit_id IS NULL AND p.event = ? ORDER BY p.id LIMIT ?`),
+    countUnsyncedPit: db.prepare(`SELECT COUNT(*) AS n FROM pit_records p LEFT JOIN pit_sync_log s ON s.pit_id = p.id
+                                  WHERE s.pit_id IS NULL AND p.event = ?`),
+    markPitSynced: db.prepare('INSERT OR IGNORE INTO pit_sync_log (pit_id, synced_at) VALUES (?, ?)'),
     counts: db.prepare(`SELECT
                           (SELECT COUNT(*) FROM scans) AS scans,
                           (SELECT COUNT(*) FROM scans WHERE accepted = 0) AS rejected,
@@ -135,8 +182,8 @@ export function openDb(file = ':memory:') {
     },
     setSetting(key, value) { q.setSetting.run(key, JSON.stringify(value)); },
 
-    insertScan({ scannedAt, raw, source, accepted, outcome, reason = null, recordId = null }) {
-      return Number(q.insertScan.run(scannedAt, raw, source, accepted ? 1 : 0, outcome, reason, recordId).lastInsertRowid);
+    insertScan({ scannedAt, raw, source, accepted, outcome, reason = null, recordId = null, pitId = null }) {
+      return Number(q.insertScan.run(scannedAt, raw, source, accepted ? 1 : 0, outcome, reason, recordId, pitId).lastInsertRowid);
     },
 
     recordByQr(qr) { return rowToRecord(q.recordByQr.get(qr)); },
@@ -179,6 +226,20 @@ export function openDb(file = ':memory:') {
     unsyncedRecords(event, limit = 300) { return q.unsynced.all(event, limit).map(rowToRecord); },
     countUnsynced(event) { return q.countUnsynced.get(event).n; },
     markSynced(ids, at) { transaction(() => { for (const id of ids) q.markSynced.run(id, at); }); },
+
+    // ---------- Pit records ----------
+    pitByQr(qr) { return rowToRecord(q.pitByQr.get(qr)); },
+    /** rec: a decoded pit record from shared/codec.js decodePitRecord. Returns the new row id. */
+    insertPit(rec, qr, receivedAt) {
+      return Number(q.insertPit.run(qr, rec.event, pitRecordKey(rec), rec.team, rec.scout_id, rec.ts, rec.app_version,
+        rec.schema_version, JSON.stringify(rec.values), receivedAt).lastInsertRowid);
+    },
+    currentPitFor(event, rkey) { return rowToRecord(q.currentPitFor.get(event, rkey)); },
+    /** Newest pit record per team + scout, by team. */
+    currentPit(event) { return q.currentPit.all(event).map(rowToRecord); },
+    unsyncedPit(event, limit = 300) { return q.unsyncedPit.all(event, limit).map(rowToRecord); },
+    countUnsyncedPit(event) { return q.countUnsyncedPit.get(event).n; },
+    markPitSynced(ids, at) { transaction(() => { for (const id of ids) q.markPitSynced.run(id, at); }); },
 
     transaction,
     /** Consistent copy of the whole database to another file (safe while running). */

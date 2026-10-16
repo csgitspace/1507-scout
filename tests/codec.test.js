@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
-import { FIELDS, SCHEMA_VERSION, emptyValues, missingRequired } from '../shared/fields.js';
-import { encodeRecord, decodeRecord, crc32, recordKey } from '../shared/codec.js';
+import { FIELDS, SCHEMA_VERSION, PIT_FIELDS, PIT_SCHEMA_VERSION, emptyValues, missingRequired } from '../shared/fields.js';
+import { encodeRecord, decodeRecord, encodePitRecord, decodePitRecord, pitRecordKey, identifyCode, crc32, recordKey } from '../shared/codec.js';
 
 const require = createRequire(import.meta.url);
 const qrcode = require('../scout-app/vendor/qrcode.js');
@@ -142,4 +142,51 @@ test('missingRequired: blocks submit until answered, waived for no-shows', () =>
     ['auto_start_position', 'endgame_level', 'primary_role', 'cycle_speed']);
   assert.deepEqual(missingRequired({ ...v, no_show: true }), []);
   assert.deepEqual(missingRequired({ ...v, dead_in_auto: true }).map(f => f.key), ['auto_start_position']);
+});
+
+// ---------- v2 match field + pit records ----------
+
+test('match records carry the route (trench / bump) as a bit mask', () => {
+  const values = { ...emptyValues(), auto_start_position: 1, endgame_level: 0, primary_role: 0, cycle_speed: 3, route_used: 3 };
+  const res = decodeRecord(encodeRecord({ app_version: '1.1.0', event: '2026test', match_key: 'qm4', team: 254, scout_id: 'ada',
+    station: 'R2', ts: 1790000000, values }));
+  assert.equal(res.ok, true, res.reason);
+  assert.equal(res.record.values.route_used, 3);
+  assert.equal(SCHEMA_VERSION, 2);
+});
+
+function pitRec(values = {}) {
+  return { app_version: '1.1.0', event: '2026test', team: 254, scout_id: 'ada', ts: 1790000500,
+    values: { ...emptyValues(PIT_FIELDS), drivetrain: 0, fits_trench: 0, shooter_type: 2, climb_claim: 3, ...values } };
+}
+
+test('pit records round-trip, with every field type', () => {
+  const rec = pitRec({ hopper_capacity: 40, shooter_count: 2, shoots_moving: 0, auto_starts: 5, auto_best_fuel: 8,
+    auto_notes: 'Left: 8 + climb | Center: 5', pit_notes: 'Strong swerve\nfast' });
+  const qr = encodePitRecord(rec);
+  assert.equal(identifyCode(qr), 'pit');
+  const res = decodePitRecord(qr, { event: '2026test' });
+  assert.equal(res.ok, true, res.reason);
+  assert.equal(res.record.team, 254);
+  assert.equal(res.record.schema_version, PIT_SCHEMA_VERSION);
+  assert.equal(res.record.values.auto_starts, 5);
+  assert.equal(res.record.values.auto_notes, 'Left: 8 + climb / Center: 5', 'pipes cleaned so the frame stays intact');
+  assert.equal(res.record.values.pit_notes, 'Strong swerve fast');
+  assert.equal(pitRecordKey(res.record), 'pit|254|ada');
+});
+
+test('pit records are rejected with reasons: wrong event, garbled, old version, a match decoder never takes one', () => {
+  const qr = encodePitRecord(pitRec());
+  assert.match(decodePitRecord(qr, { event: '2026other' }).reason, /Wrong event/);
+  assert.match(decodePitRecord(qr.slice(0, -1) + (qr.endsWith('0') ? '1' : '0')).reason, /Checksum/);
+  assert.match(decodeRecord(qr).reason, /Not a match record/);
+  const parts = qr.split('|'); parts.pop(); parts[2] = '99';
+  const body = parts.join('|');
+  assert.match(decodePitRecord(`${body}|${crc32(body)}`).reason, /Pit form version mismatch/);
+});
+
+test('pit form: drivetrain, trench, shooter and climb claim are required', () => {
+  const missing = missingRequired(emptyValues(PIT_FIELDS), PIT_FIELDS).map(f => f.key);
+  assert.deepEqual(missing, ['drivetrain', 'fits_trench', 'shooter_type', 'climb_claim']);
+  assert.deepEqual(missingRequired(pitRec().values, PIT_FIELDS), []);
 });

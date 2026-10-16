@@ -11,8 +11,8 @@ import { ingest } from '../laptop/intake.js';
 import { coverage } from '../laptop/coverage.js';
 import { parseTbaMatches, parseTbaTeams, importEvent } from '../laptop/tba.js';
 import { createHandler } from '../laptop/api.js';
-import { encodeRecord, crc32 } from '../shared/codec.js';
-import { emptyValues } from '../shared/fields.js';
+import { encodeRecord, encodePitRecord, crc32 } from '../shared/codec.js';
+import { emptyValues, PIT_FIELDS } from '../shared/fields.js';
 import { decodeConfig, decodeSchedulePart } from '../shared/setup-codes.js';
 
 const EVENT = '2026test';
@@ -199,8 +199,12 @@ test('HTTP API: settings -> schedule -> scan -> coverage -> codes -> CSV', async
     assert.equal(cov.totals.scanned, 1);
 
     const codes = await (await fetch(base + '/api/codes')).json();
-    assert.equal(codes.config.length, 6);
+    assert.equal(codes.config.length, 7, 'six stations + Pit scout');
     assert.equal(decodeConfig(codes.config[4].code).config.station, 'B2');
+    const pitCfg = decodeConfig(codes.config[6].code).config;
+    assert.equal(pitCfg.station, 'PIT');
+    assert.deepEqual(pitCfg.teams, [...new Set(SCHEDULE.flatMap(m => m.teams))].sort((a, b) => a - b),
+      'no TBA team list: the pit iPad gets everyone in the schedule');
     assert.equal(decodeSchedulePart(codes.schedule[0]).ok, true);
 
     const csv = await (await fetch(base + '/api/export.csv')).text();
@@ -210,6 +214,95 @@ test('HTTP API: settings -> schedule -> scan -> coverage -> codes -> CSV', async
 
     assert.equal((await fetch(base + '/data/scout.sqlite')).status, 404, 'data folder is never served');
     assert.equal((await fetch(base + '/laptop/public/../../package.json')).status, 404);
+  } finally {
+    server.close();
+  }
+});
+
+function pitQr({ team = 254, scout = 'ada', ts = 1790000600, event = EVENT, values = {} } = {}) {
+  return encodePitRecord({ app_version: '1.1.0', event, team, scout_id: scout, ts,
+    values: { ...emptyValues(PIT_FIELDS), drivetrain: 0, fits_trench: 0, shooter_type: 2, climb_claim: 3, ...values } });
+}
+
+test('pit records: new, rescan, correction, a second scout, an unknown team, and append-only', () => {
+  const store = freshStore();
+  store.replaceTeams(EVENT, [{ team: 254, name: 'Cheesy Poofs' }, { team: 1507, name: 'Warlocks' }]);
+  const first = ingest(store, pitQr());
+  assert.equal(first.kind, 'pit');
+  assert.equal(first.outcome, 'new');
+  assert.deepEqual(first.warnings, []);
+  assert.equal(ingest(store, pitQr()).outcome, 'rescan');
+  assert.equal(ingest(store, pitQr({ ts: 1790000700, values: { fits_trench: 1 } })).outcome, 'replaces');
+  const other = ingest(store, pitQr({ scout: 'sam' }));
+  assert.match(other.warnings.join(), /also pit scouted by ada/);
+  assert.match(ingest(store, pitQr({ team: 9999 })).warnings.join(), /isn't on this event's team list/);
+  const noList = freshStore();   // no TBA team list: the schedule's teams count
+  assert.deepEqual(ingest(noList, pitQr({ team: 254 })).warnings, []);
+  assert.match(ingest(noList, pitQr({ team: 9999 })).warnings.join(), /isn't on this event's team list/);
+  assert.match(ingest(store, pitQr({ event: '2026other' })).reason, /Wrong event/);
+
+  const current = store.currentPit(EVENT);
+  assert.equal(current.filter(p => p.team === 254 && p.scout_id === 'ada').length, 1);
+  assert.equal(current.find(p => p.team === 254 && p.scout_id === 'ada').values.fits_trench, 1, 'the correction is current');
+  assert.equal(store.recentScans(10).filter(s => s.is_pit).length, 5);
+  assert.equal(store.currentRecords(EVENT).length, 0, 'pit records never mix into match records');
+});
+
+test('the database refuses to edit or delete pit records', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pit-'));
+  try {
+    const file = join(dir, 'scout.sqlite');
+    const store = openDb(file);
+    store.setSetting('event', EVENT);
+    ingest(store, pitQr());
+    store.close();
+    const raw = new DatabaseSync(file);
+    assert.throws(() => raw.exec('UPDATE pit_records SET team = 1'), /append-only/);
+    assert.throws(() => raw.exec('DELETE FROM pit_records'), /append-only/);
+    raw.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('an older station database (scans without pit_id) is upgraded on open, data kept', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mig-'));
+  try {
+    const file = join(dir, 'scout.sqlite');
+    const old = new DatabaseSync(file);
+    old.exec(`CREATE TABLE scans (id INTEGER PRIMARY KEY, scanned_at INTEGER NOT NULL, raw TEXT NOT NULL, source TEXT,
+      accepted INTEGER NOT NULL, outcome TEXT NOT NULL, reason TEXT, record_id INTEGER);
+      INSERT INTO scans (scanned_at, raw, accepted, outcome) VALUES (1, 'x', 0, 'rejected');`);
+    old.close();
+    const store = openDb(file);
+    store.setSetting('event', EVENT);
+    assert.equal(ingest(store, pitQr()).outcome, 'new');
+    assert.equal(store.recentScans(10).length, 2, 'the old scan is still there');
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('HTTP API: pit coverage and pit CSV', async () => {
+  const store = freshStore();
+  store.setSetting('roster', [{ id: 'ada', name: 'Ada L.' }]);
+  ingest(store, pitQr({ values: { auto_starts: 3, pit_notes: 'Great, "fast"' } }));
+  ingest(store, pitQr({ team: 7777 }));
+  const server = createServer(createHandler({ store }));
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const pit = await (await fetch(base + '/api/pit')).json();
+    assert.equal(pit.total, 12, 'everyone in the schedule');
+    assert.equal(pit.done, 1);
+    assert.deepEqual(pit.teams.find(t => t.team === 254).scouts.map(s => s.scout), ['Ada L.']);
+    assert.deepEqual(pit.extras, [7777]);
+    const csv = (await (await fetch(base + '/api/pit.csv')).text()).replace(/^﻿/, '').split('\r\n');
+    assert.match(csv[0], /^event,team,scout_id,scout_name,scouted_at,app_version,drivetrain,fits_trench/);
+    assert.match(csv[1], /^2026test,254,ada,Ada L\.,.*,Swerve,Yes,/);
+    assert.match(csv[1], /"In front of Hub, Left of Hub"/);
+    assert.match(csv[1], /"Great, ""fast"""/);
   } finally {
     server.close();
   }

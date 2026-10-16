@@ -106,6 +106,7 @@ main.center { text-align: center; padding-top: 48px; }
 }
 .chip-station.red { background: var(--red-alliance); }
 .chip-station.blue { background: var(--blue-alliance); }
+.chip-station.pit { background: var(--gold); color: #000; }
 .tag {
   display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.8rem;
   border: 1px solid var(--line); color: var(--muted);
@@ -128,6 +129,12 @@ main.center { text-align: center; padding-top: 48px; }
   background: var(--card); font-size: 1.15rem; font-weight: 700;
 }
 .roster-btn.on { border-color: var(--gold); color: var(--gold); }
+
+/* ---------- Pit scouting team list ---------- */
+.pit-teams { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); margin-bottom: 14px; }
+.pit-teams .roster-btn { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.roster-btn.done { border-color: var(--good); color: var(--muted); }
+.pit-done { color: var(--good); }
 
 /* ---------- Home ---------- */
 .match-card {
@@ -161,6 +168,7 @@ main.center { text-align: center; padding-top: 48px; }
 }
 .form-screen.red .form-head { border-bottom-color: var(--red-alliance); }
 .form-screen.blue .form-head { border-bottom-color: var(--blue-alliance); }
+.form-screen.pit .form-head { border-bottom-color: var(--gold); }
 .form-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; padding-bottom: 8px; }
 .form-team { color: var(--gold); font-size: 1.3rem; }
 .tabs { display: flex; }

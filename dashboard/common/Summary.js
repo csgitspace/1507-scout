@@ -39,6 +39,9 @@ var DRAFT = {
       reason: function (t) { return 'defends ' + pct_(t.defense_share); } },
     { id: 'feeder',   label: 'Feeder',           score: function (t) { return t.feeder_share; },
       reason: function (t) { return 'feeds ' + pct_(t.feeder_share); } },
+    // trench_score / trench_label are set by the dashboard from scouting + pit data (web/Code.js trenchStatus_).
+    { id: 'trench',   label: 'Trench bot',       score: function (t) { return t.trench_score || 0; },
+      reason: function (t) { return t.trench_label || 'trench unknown'; } },
   ],
   fitCuts: [0.6, 0.3],                  // fit score at/above -> High, Mid; below -> Low
 };
@@ -53,6 +56,10 @@ var SUMMARY_COLUMNS = [
   // Per match, oldest first, for the Analyze charts: [{ m: match_key, auto, tele, climb (0-3), ns, broke }].
   // New columns go at the END: the dashboard reads Summary rows by position.
   'series_json',
+  // Routes: matches where scouts could record one (schema v2+), and the share seen under the trench / over the bump.
+  'route_n', 'trench_rate', 'bump_rate',
+  // Auto by start position, best first: [{ pos, n, fuel, climb }].
+  'auto_starts_json',
 ];
 
 function pct_(x) { return Math.round((x || 0) * 100) + '%'; }
@@ -103,7 +110,16 @@ function observe_(v) {
     role: v.primary_role === null || v.primary_role === undefined ? null : v.primary_role, // 0 Scorer, 1 Feeder, 2 Defense
     cycle: v.cycle_speed === null || v.cycle_speed === undefined ? null : v.cycle_speed,
     notes: v.notes || '',
+    route: v.route_used === undefined || v.route_used === null ? null : v.route_used,  // bit 0 trench, bit 1 bump; null = older form
+    start: v.auto_start_position === undefined ? null : v.auto_start_position,
+    autoClimb: v.auto_climb ? 1 : 0,
   };
+}
+
+/** Labels for auto_start_position (from the generated Fields.js), or "Position N" if unavailable. */
+function startLabel_(i) {
+  var f = typeof FIELDS !== 'undefined' ? FIELDS.filter(function (x) { return x.key === 'auto_start_position'; })[0] : null;
+  return f && f.options[i] !== undefined ? f.options[i] : 'Position ' + (i + 1);
 }
 
 /**
@@ -122,6 +138,7 @@ function summarizeTeams(records, teamNames) {
   var out = Object.keys(byTeam).map(function (team) {
     var matchKeys = Object.keys(byTeam[team]).sort(function (a, b) { return matchSortKey_(a) - matchSortKey_(b); });
     var played = [], all = [], roles = [0, 0, 0], roleTotal = 0, cycles = [], notes = [], nRecords = 0, series = [];
+    var routes = [], starts = {};
     matchKeys.forEach(function (mk) {
       var recs = byTeam[team][mk];
       nRecords += recs.length;
@@ -134,6 +151,21 @@ function summarizeTeams(records, teamNames) {
       if (avg.noShow < 0.5) played.push(avg);   // capability averages skip no-shows
       series.push({ m: mk, auto: round1_(avg.auto), tele: round1_(avg.teleop), climb: round1_(avg.l1 + avg.l2 + avg.l3),
         ns: avg.noShow >= 0.5 ? 1 : 0, broke: avg.broke >= 0.5 ? 1 : 0 });
+      if (avg.noShow < 0.5) {
+        // Routes: only scouts using a form that asks (schema v2+) count.
+        var withRoute = obs.filter(function (o) { return o.route !== null; });
+        if (withRoute.length) {
+          routes.push({
+            trench: mean_(withRoute.map(function (o) { return o.route & 1 ? 1 : 0; })),
+            bump: mean_(withRoute.map(function (o) { return o.route & 2 ? 1 : 0; })),
+          });
+        }
+        // Auto by start position (the first scout who recorded one).
+        var start = obs.map(function (o) { return o.start; }).filter(function (s) { return s !== null; })[0];
+        if (start !== undefined) {
+          (starts[start] = starts[start] || []).push({ fuel: avg.auto, climb: mean_(obs.map(function (o) { return o.autoClimb; })) });
+        }
+      }
       obs.forEach(function (o) {
         if (o.role !== null) { roles[o.role] += 1 / obs.length; roleTotal += 1 / obs.length; }
         if (o.cycle !== null) cycles.push(o.cycle);
@@ -175,6 +207,14 @@ function summarizeTeams(records, teamNames) {
       last_match: matchKeys.length ? matchLabel_(matchKeys[matchKeys.length - 1]) : '',
       notes: notes.slice(-12),
       series: series,
+      route_n: routes.length,
+      trench_rate: round3_(mean_(routes.map(function (r) { return r.trench; }))),
+      bump_rate: round3_(mean_(routes.map(function (r) { return r.bump; }))),
+      auto_starts: Object.keys(starts).map(function (p) {
+        var runs = starts[p];
+        return { pos: startLabel_(Number(p)), n: runs.length, fuel: round1_(mean_(runs.map(function (r) { return r.fuel; }))),
+          climb: round3_(mean_(runs.map(function (r) { return r.climb; }))) };
+      }).sort(function (a, b) { return b.fuel - a.fuel || b.climb - a.climb || b.n - a.n; }),
     };
   });
 
@@ -227,13 +267,14 @@ function fitFor(t, gapIds) {
 function blankSummary_(team, name) {
   var t = {};
   SUMMARY_COLUMNS.forEach(function (c) { t[c] = ''; });
-  t.team = Number(team); t.name = name || ''; t.matches = 0; t.records = 0; t.notes = []; t.series = [];
-  delete t.notes_json; delete t.series_json;
+  t.team = Number(team); t.name = name || ''; t.matches = 0; t.records = 0; t.notes = []; t.series = []; t.auto_starts = [];
+  t.route_n = 0;
+  delete t.notes_json; delete t.series_json; delete t.auto_starts_json;
   return t;
 }
 
-/** Summary object -> sheet row, and back. *_json columns <-> parsed arrays (notes, series). */
-var JSON_COLUMNS_ = { notes_json: 'notes', series_json: 'series' };
+/** Summary object -> sheet row, and back. *_json columns <-> parsed arrays (notes, series, auto_starts). */
+var JSON_COLUMNS_ = { notes_json: 'notes', series_json: 'series', auto_starts_json: 'auto_starts' };
 function summaryToRow_(t) {
   return SUMMARY_COLUMNS.map(function (c) { return JSON_COLUMNS_[c] ? JSON.stringify(t[JSON_COLUMNS_[c]] || []) : t[c]; });
 }

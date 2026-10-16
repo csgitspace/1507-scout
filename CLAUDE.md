@@ -56,7 +56,8 @@ repo.
 - **No manual event/station selection by scouts.** The scouting lead
   configures each iPad's event and station assignment (e.g. via a config
   QR code scanned once per iPad). Scouts never pick their own match or
-  team to scout.
+  team to scout. (Deliberate exception: a *pit* iPad picks the team whose
+  pit it's at, from the event's team list in its config QR.)
 - **iPad records are never auto-deleted.** They stay on the device even
   after a successful scan, as the only backup if the laptop fails.
 - **Every match record needs**: app version, event code, match number,
@@ -138,8 +139,10 @@ legacy/      v3 Code.gs + index.html — reference only, never edit
 - What gaps in our own robot "fit" should be computed against.
 - Shared vs. per-mentor notes on the dashboard.
 - 2D imager model — confirm it reads tablet screens before buying.
-- Pit data and photos: multi-frame QR, upload later on school/hotel
-  Wi-Fi, or enter at the laptop.
+- Pit photos: multi-frame QR, upload later on school/hotel Wi-Fi, or
+  take them at the laptop. (Pit *data* is decided: a "Pit scout" config
+  QR turns an iPad into a pit iPad, and pit records travel as single QR
+  codes like match records — see `docs/plans/m7-pit-and-routes.md`.)
 - Alliance Board input: scouts star teams on the dashboard, or a "would
   pick" rating in each match record.
 - Align bot type categories (legacy: Scorer/Feeder/Defense) with the

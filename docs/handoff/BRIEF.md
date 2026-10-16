@@ -140,6 +140,7 @@ not permanent screen parts.
 | Auto | **Dead in auto** | toggle | "On the field but didn't move" |
 | Teleop | **Fuel scored** / **Fuel missed** | counters | |
 | Teleop | **Picked up fuel from** | pick all that apply | Floor / Depot / Outpost |
+| Teleop | **Drove through** | pick all that apply | Under the trench / Over the bump: "Everything you saw this match (auto or teleop)". Added in app v1.1.0 |
 | Teleop | **Broke down** | toggle | "Stopped working during the match" |
 | Endgame | **Attempted climb** | toggle | turns on automatically if a climb level is chosen |
 | Endgame | **Climb level reached** | choice, required | None / Level 1 / Level 2 / Level 3 |
@@ -165,7 +166,27 @@ not permanent screen parts.
 - An info panel shows app version, event and station, record count,
   schedule, whether the app is installed, and whether storage is protected.
 
-### 4.6 App updates
+### 4.6 Pit scouting iPad (app v1.1.0)
+- The scouting lead scans the **Pit scout** config code (the 7th card on
+  the scan station's Event setup screen) on one iPad.
+- That iPad shows **Pit scouting**: a grid of the event's team numbers
+  (from the config code), each with ✓ once done on this iPad, plus
+  **Other team…** for a team not on the list.
+- The scout walks pit to pit and taps the team, then fills in three tabs:
+  - **Robot**: Drivetrain (Swerve / Tank / West Coast / Mecanum / Other),
+    **Fits under the trench?**, Drives over the bump?, Hopper capacity
+  - **Shooting & auto**: Shooter type (Fixed / Adjustable hood / Turret /
+    No shooter), Number of shooters, Shoots while moving?, Auto start
+    positions they can run, Fuel in their best auto (claimed), Climbs in
+    auto?, Their autos (short text)
+  - **Climb & notes**: Highest climb (claimed), Notes
+- Drivetrain, trench, shooter type and highest climb are **required**.
+- **Submit ⚡** shows a QR code to scan at the station, exactly like a
+  match record. **Correct this record** works the same way too.
+- A pit scout chooses which team to scout (from the list). That's the one
+  deliberate exception to "scouts never pick their team".
+
+### 4.7 App updates
 When a new version has been published and the iPad is online, Home shows
 **"App update ready" → Update now**. It refuses while a match is
 unfinished. Only update between matches.
@@ -194,6 +215,13 @@ the station. **After updating the code, restart the station.**
     record and scan counts, and **Dashboard sync** status (e.g. "✓ Synced
     2 min ago", "N records waiting", the Google account) with **⟳ Sync
     now** and **Open mentor dashboard ↗**.
+- **Coverage** also has a **Pit scouting** panel:
+  - "N of M teams pit scouted. Still to visit: K."
+  - a tile per team (green ✓ done, red dashed not yet)
+  - teams pit scouted that aren't on the list
+  - **⬇ Export pit CSV**
+- Pit scans show as "✓ Pit · Team 254" on the Scan tab, with a warning
+  if the team isn't on the event's list or another scout already did it.
 - **Coverage** (`station-04`): **"Which scans are missing?"**
   - A grid of matches × Red 1–Blue 3, with a red count on the tab.
   - Cells: **✓ scanned** (green), **missing** (red dashed), **2+ scouts**
@@ -211,8 +239,8 @@ the station. **After updating the code, restart the station.**
      just a name), and the TBA read key.
   2. **Schedule:** **Import from The Blue Alliance** (needs the tethered
      phone), or paste one, or **Make practice schedule**.
-  3. **iPad codes:** **Show config codes** (six cards, one per station,
-     printable) and **Show schedule codes** (an auto-advancing slideshow,
+  3. **iPad codes:** **Show config codes** (six station cards plus **Pit
+     scout**, printable) and **Show schedule codes** (an auto-advancing slideshow,
      Part 1 of N). Show the schedule again whenever it changes, e.g. when
      playoffs are set.
   4. **Dashboard sync:** set up automatically on the main laptop.
@@ -278,7 +306,8 @@ described below.
   Feeder). The **Fit** of each team is computed from these.
 - **Filters:** Scoring (High/Mid/Low), Bot type (Scorer/Feeder/Defense/
   Hybrid), Strength (draft), Fit, Tag (Target/Backup/Avoid/Untagged),
-  Picked (Show / **Hide picked**). **Sort:** Pick order, EPA, Scouted
+  **Trench** (Trench bot / Bump only), Picked (Show / **Hide picked**).
+  "Our robot needs" includes **Trench bot**. **Sort:** Pick order, EPA, Scouted
   fuel, TBA rank.
 - **Each team card:**
   - **Pick rank:** drag ⠿ or use ▲▼. On the official list (pick leads
@@ -289,6 +318,19 @@ described below.
     **Fit … : reason** (e.g. "Fit High: L3 80%, defends 40%").
   - A stats line: fuel per match (auto), accuracy, best climb rate,
     matches scouted, and ⚠ reliability problems (no-show, broke, dead auto).
+  - **Trench badge** (what scouts saw beats what the pit said):
+    - **Trench ✓ (seen 3/5)** (green): scouts saw it go under the trench
+    - **Trench (pit says)**: only the team's word; "not seen in N" once
+      scouts have watched it
+    - **Bump only** (red): the pit said no, or 3+ matches with the bump
+      but never the trench
+  - **Shooter badge** from pit scouting, e.g. **Turret ×2 · shoots
+    moving**.
+  - **Best auto** line: the start position where the team scored the
+    most auto fuel in scouted matches, e.g. "Best auto: Left of Hub — 7.5
+    fuel, climbs 50% (4 runs)". Followed by the pit's claimed start
+    positions.
+  - **Pit scouting (by name)**: tap to see every pit answer.
   - **Target / Backup / Avoid** tag buttons (the card edge turns
     green/blue/red). Tags change on screen immediately.
   - **Picked** button (pick leads only, on the official list). See
@@ -315,7 +357,8 @@ described below.
 **Analyze screen** (charts, built from the same data as the pick list):
 - **Compare teams:** choose up to three teams. Shows a side-by-side table
   of fuel, auto, teleop, accuracy, climbs, reliability, bot type, EPA,
-  OPR, TBA rank and matches scouted. The best value in each row is gold.
+  OPR, TBA rank, matches scouted, trench, shooter, drivetrain, best auto,
+  hopper and claimed climb. The best value in each row is gold.
   Defaults to the top two of the official order.
 - **Match by match:** fuel scored in each compared team's matches, in the
   order they played. A gap means a no-show.
@@ -370,8 +413,11 @@ described below.
 **Before the event (online, e.g. the night before):**
 1. Laptop: `npm.cmd run station` → Event setup → enter the event code,
    PIN and roster → Save → **Import from The Blue Alliance**.
-2. Each iPad: confirm it opens from the Home Screen. Scan its **config
-   code** (by station), then the **schedule codes**.
+2. Each iPad: confirm it opens from the Home Screen. If Home shows **App
+   update ready**, tap **Update now**: v1.1.0 is required, and the
+   station rejects older iPads' records. Scan its **config code** (by
+   station), then the **schedule codes**. The pit iPad scans **Pit
+   scout** instead; import the event first so its team list is complete.
 3. Check the scan station's **Dashboard sync** panel shows "✓ Synced".
 
 **At the event:**
@@ -418,8 +464,10 @@ described below.
   and teams.
 - **Alliance selection / pick list:** top teams choose partners for the
   playoffs; the pick list is our ranked list of who we'd choose.
-- **Fuel / Hub / Depot / Outpost / climb levels:** 2026 game ("REBUILT")
-  terms. Next season's game replaces them.
+- **Fuel / Hub / Depot / Outpost / climb levels / trench / bump:** 2026
+  game ("REBUILT") terms. A "trench bot" is low enough to drive under the
+  trench; others must go over the bump. Next season's game replaces them.
+- **Pit scouting:** visiting each team's pit to ask about their robot.
 - **QR code:** the square barcode the iPad shows. **Imager:** a USB
   barcode scanner.
 - **Superseded:** replaced by a newer correction; the old one is kept,

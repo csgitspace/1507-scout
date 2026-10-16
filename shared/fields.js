@@ -23,7 +23,8 @@
 // ==============================================================================
 
 // Game: 2026 REBUILT. Replace this list when the 2027 game is revealed.
-export const SCHEMA_VERSION = 1;
+// v2 (2026-10-15): added route_used (trench / bump).
+export const SCHEMA_VERSION = 2;
 
 export const PHASES = [
   { id: 'auto',    label: 'Auto' },
@@ -57,6 +58,9 @@ export const FIELDS = [
     label: 'Fuel missed' },
   { key: 'pickup_sources', phase: 'teleop', type: 'multi',
     label: 'Picked up fuel from', options: ['Floor', 'Depot', 'Outpost'] },
+  { key: 'route_used', phase: 'teleop', type: 'multi',
+    label: 'Drove through', options: ['Under the trench', 'Over the bump'],
+    help: 'Everything you saw this match (auto or teleop)' },
   { key: 'broke_down', phase: 'teleop', type: 'bool',
     label: 'Broke down', help: 'Stopped working during the match' },
 
@@ -80,10 +84,59 @@ export const FIELDS = [
     label: 'Notes', help: 'What would a mentor want to know at alliance selection?' },
 ];
 
-/** A blank set of values for a new match. Unanswered enums/ratings are null. */
-export function emptyValues() {
+// ------------------------------------------------------------------------------
+// PIT scouting: asked once per team, in their pit (an iPad set to "Pit scout").
+// Same field types and rules as above; bump PIT_SCHEMA_VERSION on any change.
+// requiredUnless: [] = always required.
+// ------------------------------------------------------------------------------
+export const PIT_SCHEMA_VERSION = 1;
+
+export const PIT_PHASES = [
+  { id: 'robot', label: 'Robot' },
+  { id: 'shoot', label: 'Shooting & auto' },
+  { id: 'climb', label: 'Climb & notes' },
+];
+
+const YES_NO = ['Yes', 'No'];
+
+export const PIT_FIELDS = [
+  // --- Robot ---
+  { key: 'drivetrain', phase: 'robot', type: 'enum',
+    label: 'Drivetrain', options: ['Swerve', 'Tank / West Coast', 'Mecanum', 'Other'], requiredUnless: [] },
+  { key: 'fits_trench', phase: 'robot', type: 'enum',
+    label: 'Fits under the trench?', options: YES_NO, requiredUnless: [] },
+  { key: 'crosses_bump', phase: 'robot', type: 'enum',
+    label: 'Drives over the bump?', options: YES_NO },
+  { key: 'hopper_capacity', phase: 'robot', type: 'counter',
+    label: 'Hopper capacity (fuel)' },
+
+  // --- Shooting & auto ---
+  { key: 'shooter_type', phase: 'shoot', type: 'enum',
+    label: 'Shooter type', options: ['Fixed', 'Adjustable hood', 'Turret', 'No shooter'], requiredUnless: [] },
+  { key: 'shooter_count', phase: 'shoot', type: 'counter', steps: [1],
+    label: 'Number of shooters' },
+  { key: 'shoots_moving', phase: 'shoot', type: 'enum',
+    label: 'Shoots while moving?', options: YES_NO },
+  { key: 'auto_starts', phase: 'shoot', type: 'multi',
+    label: 'Auto start positions they can run', options: ['In front of Hub', 'Left of Hub', 'Right of Hub'] },
+  { key: 'auto_best_fuel', phase: 'shoot', type: 'counter',
+    label: 'Fuel in their best auto (claimed)' },
+  { key: 'auto_climb_claim', phase: 'shoot', type: 'enum',
+    label: 'Climbs in auto?', options: YES_NO },
+  { key: 'auto_notes', phase: 'shoot', type: 'text', maxLength: 150,
+    label: 'Their autos', help: 'e.g. "Left: 8 fuel + climb. Center: 5 fuel."' },
+
+  // --- Climb & notes ---
+  { key: 'climb_claim', phase: 'climb', type: 'enum',
+    label: 'Highest climb (claimed)', options: ['None', 'Level 1', 'Level 2', 'Level 3'], requiredUnless: [] },
+  { key: 'pit_notes', phase: 'climb', type: 'text', maxLength: 200,
+    label: 'Notes', help: 'Anything a mentor should know: strengths, worries, what they want in a partner' },
+];
+
+/** A blank set of values for a new form (match by default). Unanswered enums/ratings are null. */
+export function emptyValues(fields = FIELDS) {
   const v = {};
-  for (const f of FIELDS) {
+  for (const f of fields) {
     if (f.type === 'bool') v[f.key] = false;
     else if (f.type === 'counter' || f.type === 'multi') v[f.key] = 0;
     else if (f.type === 'text') v[f.key] = '';
@@ -104,9 +157,9 @@ export function displayValue(f, v) {
   }
 }
 
-/** Fields that still need an answer before this match can be submitted. */
-export function missingRequired(values) {
-  return FIELDS.filter(f =>
+/** Fields that still need an answer before this form can be submitted. */
+export function missingRequired(values, fields = FIELDS) {
+  return fields.filter(f =>
     f.requiredUnless &&
     (values[f.key] === null || values[f.key] === undefined) &&
     !f.requiredUnless.some(k => values[k] === true));

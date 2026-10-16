@@ -4,6 +4,8 @@
 //
 // Config — scanned once per iPad; sets event, station, lead PIN and roster:
 //   WCFG|<ver>|<event>|<station>|<pin>|<id>:<name>;<id>:<name>...|<crc32>
+// A pit-scouting iPad gets station PIT, plus the event's team numbers:
+//   WCFG|<ver>|<event>|PIT|<pin>|<roster>|<team>,<team>,...|<crc32>
 //
 // Schedule — split into parts so each code stays easy to scan; the iPad
 // collects every part of one revision ("rev") before switching over:
@@ -14,7 +16,9 @@
 // ==============================================================================
 
 import { encodeFrame, decodeFrame, identifyCode, clean, EVENT_RE, SCOUT_ID_RE } from './codec.js';
-import { parseMatchKey, compareMatchKeys, STATIONS } from './schedule.js';
+import { parseMatchKey, compareMatchKeys, STATIONS, PIT_STATION } from './schedule.js';
+
+const CONFIG_STATIONS = [...STATIONS, PIT_STATION];
 
 const CONFIG_VERSION = 1;
 const SCHEDULE_VERSION = 1;
@@ -27,16 +31,21 @@ function cleanName(name) {
 }
 
 // ---------- Config ----------
-/** cfg: { event, station, pin, roster: [{ id, name }] } */
+/** cfg: { event, station, pin, roster: [{ id, name }], teams?: [number] (pit iPad only) } */
 export function encodeConfig(cfg) {
   if (!EVENT_RE.test(cfg.event)) throw new Error(`Bad event code "${cfg.event}" (lowercase letters/digits, e.g. 2026nyro)`);
-  if (!STATIONS.includes(cfg.station)) throw new Error(`Bad station "${cfg.station}"`);
+  if (!CONFIG_STATIONS.includes(cfg.station)) throw new Error(`Bad station "${cfg.station}"`);
   if (!PIN_RE.test(cfg.pin)) throw new Error('PIN must be 4–8 digits');
   for (const s of cfg.roster) {
     if (!SCOUT_ID_RE.test(s.id)) throw new Error(`Bad scout ID "${s.id}" (letters, digits, - or _, max 12)`);
   }
   const roster = cfg.roster.map(s => `${s.id}:${cleanName(s.name)}`).join(';');
-  return encodeFrame(['WCFG', CONFIG_VERSION, cfg.event, cfg.station, cfg.pin, roster]);
+  const parts = ['WCFG', CONFIG_VERSION, cfg.event, cfg.station, cfg.pin, roster];
+  if (cfg.station === PIT_STATION) {
+    const teams = [...new Set((cfg.teams || []).map(Number).filter(t => t >= 1 && t <= 99999 && Number.isInteger(t)))].sort((a, b) => a - b);
+    parts.push(teams.join(','));
+  }
+  return encodeFrame(parts);
 }
 
 /** Returns { ok: true, config } or { ok: false, reason }. */
@@ -44,9 +53,9 @@ export function decodeConfig(text) {
   if (identifyCode(text) !== 'config') return { ok: false, reason: 'Not a config QR code' };
   const parts = decodeFrame(text);
   if (!parts) return { ok: false, reason: 'Checksum failed — try scanning again' };
-  const [, ver, event, station, pin, rosterStr] = parts;
+  const [, ver, event, station, pin, rosterStr, teamsStr] = parts;
   if (Number(ver) !== CONFIG_VERSION) return { ok: false, reason: `Config version ${ver} not supported — update the app` };
-  if (!EVENT_RE.test(event) || !STATIONS.includes(station) || !PIN_RE.test(pin)) {
+  if (!EVENT_RE.test(event) || !CONFIG_STATIONS.includes(station) || !PIN_RE.test(pin)) {
     return { ok: false, reason: 'Config QR has bad event, station or PIN' };
   }
   const roster = (rosterStr || '').split(';').filter(Boolean).map(entry => {
@@ -56,7 +65,12 @@ export function decodeConfig(text) {
   if (!roster.length || roster.some(s => !SCOUT_ID_RE.test(s.id) || !s.name)) {
     return { ok: false, reason: 'Config QR has a bad or empty scout roster' };
   }
-  return { ok: true, config: { event, station, pin, roster } };
+  const config = { event, station, pin, roster };
+  if (station === PIT_STATION) {
+    config.teams = (teamsStr || '').split(',').filter(Boolean).map(Number);
+    if (config.teams.some(t => !(t >= 1 && t <= 99999))) return { ok: false, reason: 'Config QR has a bad team list' };
+  }
+  return { ok: true, config };
 }
 
 // ---------- Schedule ----------

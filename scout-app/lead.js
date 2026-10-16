@@ -7,7 +7,7 @@ import { scanQR } from './scanner.js';
 import { encodeConfig, encodeSchedule } from '../shared/setup-codes.js';
 import { decodeRecord } from '../shared/codec.js';
 import { FIELDS } from '../shared/fields.js';
-import { STATIONS, stationLabel, matchLabel } from '../shared/schedule.js';
+import { STATIONS, PIT_STATION, stationLabel, matchLabel } from '../shared/schedule.js';
 import { parseRoster, parseScheduleText, practiceSchedule, scheduleToText } from '../shared/lead-input.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,7 +33,8 @@ $('make-config').addEventListener('click', () => {
     const pin = $('pin').value.trim();
     const roster = parseRoster($('roster').value);
     if (!roster.length) throw new Error('Add at least one scout to the roster');
-    for (const station of STATIONS) {
+    // Pit scout code has no team list here (the scan station's version does); the pit iPad uses "Other team…".
+    for (const station of [...STATIONS, PIT_STATION]) {
       const code = encodeConfig({ event, station, pin, roster });
       out.append(h('div', { class: 'code-card' },
         h('h3', null, `${stationLabel(station)}`),

@@ -3,7 +3,7 @@
 //
 // Deployed as a web app that runs as the TEAM account and that anyone can
 // reach, so every request must carry SYNC_TOKEN. It only writes; it never
-// returns scouting data. It writes Raw (append-only), Teams, Matches,
+// returns scouting data. It writes Raw and Pit (append-only), Teams, Matches,
 // Summary, External, Results and Config, and never touches the pick team's
 // tabs (Mentor, MentorPrivate, MyPicks; CLAUDE.md rule). It creates the
 // Leads tab once and protects it so only the team account can edit it.
@@ -17,6 +17,43 @@ var RAW_META = ['synced_at', 'event', 'match_key', 'match', 'team', 'station', '
 
 function rawHeaders_() {
   return RAW_META.concat(FIELDS.map(function (f) { return f.key; }), ['values_json', 'qr']);
+}
+
+var PIT_META = ['synced_at', 'event', 'team', 'scout_id', 'scout_name', 'scouted_at', 'ts', 'app_version', 'schema_version',
+  'rkey', 'laptop_id'];
+
+function pitHeaders_() {
+  return PIT_META.concat(PIT_FIELDS.map(function (f) { return f.key; }), ['values_json', 'qr']);
+}
+
+/** Appends pit records not already in the Pit tab (matched by QR text). Returns { added, accepted: [laptop ids] }. */
+function appendPit_(ss, event, pits, stamp) {
+  var sh = getOrCreateSheet_(ss, TAB.PIT);
+  var headers = ensureHeaderColumns_(sh, pitHeaders_());
+  protectOwnerOnly_(sh, 'Pit scouting data — written only by the sync. Never edit.');
+  var idx = headerIndex_(headers);
+  var have = {};
+  readRows_(sh).forEach(function (r) { have[r[idx.qr]] = true; });
+  var fieldsByKey = {};
+  PIT_FIELDS.forEach(function (f) { fieldsByKey[f.key] = f; });
+  var rows = [];
+  pits.forEach(function (p) {
+    if (!p || !p.qr || p.event !== event || have[p.qr]) return;
+    have[p.qr] = true;
+    var row = headers.map(function () { return ''; });
+    var put = function (k, v) { if (idx[k] !== undefined) row[idx[k]] = cellText_(v); };
+    put('synced_at', stamp); put('event', p.event); put('team', p.team); put('scout_id', p.scout_id); put('scout_name', p.scout_name || '');
+    put('scouted_at', new Date(p.ts * 1000).toISOString()); put('ts', p.ts); put('app_version', p.app_version);
+    put('schema_version', p.schema_version); put('rkey', p.rkey); put('laptop_id', p.id);
+    Object.keys(p.values || {}).forEach(function (k) { if (fieldsByKey[k]) put(k, displayField_(fieldsByKey[k], p.values[k])); });
+    put('values_json', JSON.stringify(p.values || {}));
+    put('qr', p.qr);
+    rows.push(row);
+  });
+  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
+  // Confirm every one we now hold (new or already here), so the laptop stops resending them.
+  var accepted = pits.filter(function (p) { return p && p.qr && have[p.qr]; }).map(function (p) { return p.id; });
+  return { added: rows.length, accepted: accepted };
 }
 
 /** Connectivity check for the laptop's "Test" button. Returns no data. */
@@ -83,6 +120,9 @@ function handleSync_(ss, body, now) {
   });
   if (newRows.length) raw.getRange(raw.getLastRow() + 1, 1, newRows.length, headers.length).setValues(newRows);
 
+  // 1b. Pit scouting records, into their own tab (same rule: every version kept).
+  var pit = body.pit && body.pit.length ? appendPit_(ss, event, body.pit, stamp) : { added: 0, accepted: [] };
+
   // 2. Teams and schedule, when the laptop sends them (only after they change).
   if (body.teams) {
     writeTable_(getOrCreateSheet_(ss, TAB.TEAMS), ['team_number', 'team_name'],
@@ -133,6 +173,8 @@ function handleSync_(ss, body, now) {
     ok: true,
     accepted: records.map(function (r) { return r && r.id; }).filter(function (id) { return id !== undefined; }),
     added: newRows.length,
+    acceptedPit: pit.accepted,
+    addedPit: pit.added,
     total: all.length,
     teams: summary.length,
   };

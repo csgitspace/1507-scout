@@ -39,6 +39,10 @@ Fill this in with the scouting leads before finalizing the record format.
 | Robot reliability | Breakdowns | boolean + note | | |
 | Awards scouting | Standout behavior | free text | | |
 | Data health | Was this match scouted? | derived | | from match+team+scout coverage |
+| Pick list, match strategy | Can it go under the trench, or bump only? | multi (match), enum (pit) | `route_used`; pit `fits_trench`, `crosses_bump` | Added 2026-10-15. What scouts *saw* overrides what the pit *said* (dashboard "Trench ✓ (seen 3/5)" / "Trench (pit says)" / "Bump only"); drives the "Trench bot" Fit gap |
+| Match strategy | Will partners' autos collide? What's their best auto? | derived + pit claims | `auto_start_position` + auto fuel/climb (derived "best auto"); pit `auto_starts`, `auto_best_fuel`, `auto_climb_claim`, `auto_notes` | Best auto = start position with the most auto fuel in scouted matches |
+| Pick list, match strategy | Can it score under defense / from range? | enum (pit) | `shooter_type`, `shooter_count`, `shoots_moving` | Fixed / Adjustable hood / Turret / No shooter |
+| Pick list | Cycle capacity, drivetrain, claimed climb | pit | `hopper_capacity`, `drivetrain`, `climb_claim` | Claimed climb is checked against scouted climb rates |
 
 *(This table is a starting skeleton — the scouting leads should expand it
 field by field before the record format is frozen.)*

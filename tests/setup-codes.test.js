@@ -98,3 +98,12 @@ test('matches sort in play order and get readable labels', () => {
   assert.equal(matchLabel('sf3m1'), 'Playoff 3');
   assert.equal(matchLabel('f1m2'), 'Final 2');
 });
+
+test('a Pit scout config carries the event team list; match stations carry none', () => {
+  const res = decodeConfig(encodeConfig({ event: '2026nyro', station: 'PIT', pin: '1507', roster, teams: [254, 1507, 33, 254, 0, 'x'] }));
+  assert.equal(res.ok, true, res.reason);
+  assert.equal(res.config.station, 'PIT');
+  assert.deepEqual(res.config.teams, [33, 254, 1507], 'sorted, de-duplicated, junk dropped');
+  assert.equal(decodeConfig(encodeConfig({ event: '2026nyro', station: 'PIT', pin: '1507', roster })).config.teams.length, 0);
+  assert.equal('teams' in decodeConfig(encodeConfig({ event: '2026nyro', station: 'R1', pin: '1507', roster, teams: [1] })).config, false);
+});

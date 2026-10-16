@@ -75,6 +75,16 @@
         <div class="table-wrap"><table id="cov-grid" class="grid"></table></div>
         <div id="cov-extras"></div>
       </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Pit scouting</h2>
+          <a class="btn small" href="/api/pit.csv">⬇ Export pit CSV</a>
+        </div>
+        <p id="pit-summary" class="cov-summary"></p>
+        <div class="legend"><span class="pit-cell ok">✓ done</span><span class="pit-cell missing">not yet</span></div>
+        <div id="pit-grid" class="pit-grid"></div>
+        <p id="pit-extras" class="fine"></p>
+      </div>
     </section>
 
     <!-- RECORDS -->
@@ -137,7 +147,8 @@
       <div class="panel">
         <h2>3 · iPad codes</h2>
         <p class="fine">Each iPad scans the config code for its station once, then the schedule (Home → Scan schedule).
-          Show the schedule again whenever it changes, e.g. when playoffs are set.</p>
+          Show the schedule again whenever it changes, e.g. when playoffs are set. The <b>Pit scout</b> code turns an
+          iPad into a pit-scouting iPad with the event's team list (import the event first so the list is complete).</p>
         <div class="actions">
           <button id="show-config" class="btn primary">Show config codes</button>
           <button id="show-schedule" class="btn primary">Show schedule codes</button>

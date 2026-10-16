@@ -10,6 +10,8 @@
 // ==============================================================================
 
 export const STATIONS = ['R1', 'R2', 'R3', 'B1', 'B2', 'B3'];
+/** Not a field station: an iPad set to "PIT" does pit scouting (team by team) instead of matches. */
+export const PIT_STATION = 'PIT';
 
 const LEVEL_ORDER = ['qm', 'ef', 'qf', 'sf', 'f'];
 const KEY_RE = /^(qm|ef|qf|sf|f)(\d{1,3})(?:m(\d{1,2}))?$/;
@@ -52,8 +54,9 @@ export function matchLabel(key) {
   return `${p.level.toUpperCase()} ${p.set}-${p.number}`;
 }
 
-/** "R2" -> "Red 2" */
+/** "R2" -> "Red 2"; "PIT" -> "Pit scout" */
 export function stationLabel(station) {
+  if (station === PIT_STATION) return 'Pit scout';
   return `${station[0] === 'R' ? 'Red' : 'Blue'} ${station[1]}`;
 }
 

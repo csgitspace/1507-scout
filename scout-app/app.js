@@ -3,6 +3,8 @@
 //
 // Screens: setup -> who's scouting -> home (next match) -> form -> QR.
 // Plus history, and a PIN-locked lead menu.
+// An iPad configured as "Pit scout" (station PIT) shows a team list instead of
+// the next match, and the pit form instead of the match form.
 //
 // Works with no network at all: everything is cached by sw.js and stored in
 // IndexedDB (db.js). Every tap in the form saves a draft, so a crash or
@@ -14,10 +16,10 @@ import { qrElement } from './qr.js';
 import { scanQR } from './scanner.js';
 import { renderField } from './form.js';
 import * as db from './db.js';
-import { FIELDS, PHASES, emptyValues, missingRequired, displayValue } from '../shared/fields.js';
-import { encodeRecord, recordKey } from '../shared/codec.js';
+import { FIELDS, PHASES, PIT_FIELDS, PIT_PHASES, emptyValues, missingRequired, displayValue } from '../shared/fields.js';
+import { encodeRecord, encodePitRecord, recordKey, pitRecordKey } from '../shared/codec.js';
 import { decodeConfig, decodeSchedulePart, addSchedulePart, missingParts, completeSchedule } from '../shared/setup-codes.js';
-import { teamFor, matchLabel, stationLabel, compareMatchKeys, parseMatchKey } from '../shared/schedule.js';
+import { teamFor, matchLabel, stationLabel, compareMatchKeys, parseMatchKey, PIT_STATION } from '../shared/schedule.js';
 
 const APP_VERSION = globalThis.APP_VERSION || 'dev';
 const root = document.getElementById('app');
@@ -43,6 +45,17 @@ function save(key, value) {
 
 // ---------- Derived values ----------
 const isRed = (station) => station[0] === 'R';
+const isPitIpad = () => !!S.config && S.config.station === PIT_STATION;
+/** CSS class for a station's color: red / blue alliance, or pit. */
+const sideClass = (station) => (station === PIT_STATION ? 'pit' : isRed(station) ? 'red' : 'blue');
+
+// Match records and pit records share the screens below; these tell them apart.
+const isPitRec = (r) => r.kind === 'pit';
+const keyOf = (r) => (isPitRec(r) ? pitRecordKey(r) : recordKey(r));
+const fieldsOf = (r) => (isPitRec(r) ? PIT_FIELDS : FIELDS);
+const phasesOf = (r) => (isPitRec(r) ? PIT_PHASES : PHASES);
+/** "Qual 12 · Team 254" or "Pit · Team 254" */
+const recLabel = (r) => `${isPitRec(r) ? 'Pit' : matchLabel(r.match_key)} · Team ${r.team}`;
 const scheduleMatches = () =>
   (S.schedule && S.config && S.schedule.event === S.config.event ? S.schedule.matches : null);
 
@@ -79,7 +92,7 @@ function topbar(left = null, right = null) {
 const backButton = (label, fn) => h('button', { class: 'btn ghost small', onclick: fn }, label);
 
 function stationChip(station) {
-  return h('span', { class: `chip-station ${isRed(station) ? 'red' : 'blue'}` }, stationLabel(station));
+  return h('span', { class: `chip-station ${sideClass(station)}` }, stationLabel(station));
 }
 
 function installNotice() {
@@ -117,7 +130,7 @@ function show(name, build) {
 function route() {
   if (!S.config) return show('setup', setupScreen);
   if (!S.config.roster.some(s => s.id === S.scoutId)) return show('who', whoScreen);
-  show('home', homeScreen);
+  show('home', isPitIpad() ? pitHomeScreen : homeScreen);
 }
 
 // ---------- Setup ----------
@@ -200,14 +213,7 @@ function homeScreen() {
       h('h2', null, 'No schedule loaded'),
       h('p', null, 'Scan the schedule QR from the scan station.'));
 
-  const otherDraft = S.draft && !draftFor(key, team)
-    ? h('div', { class: 'notice' },
-      h('div', null, h('strong', null, 'Unfinished: '),
-        `${matchLabel(S.draft.match_key)} · Team ${S.draft.team}${S.draft.correction ? ' (correction)' : ''}`),
-      h('div', { class: 'btn-row' },
-        h('button', { class: 'btn ghost', onclick: discardDraft }, 'Discard'),
-        h('button', { class: 'btn primary', onclick: () => show('form', formScreen) }, 'Resume')))
-    : null;
+  const otherDraft = S.draft && !draftFor(key, team) ? unfinishedNotice() : null;
 
   let schedLine = sched ? `Schedule: ${Object.keys(sched).length} matches (rev ${S.schedule.rev})` : 'No schedule loaded';
   if (S.pendingSchedule) {
@@ -236,6 +242,71 @@ function homeScreen() {
       h('p', { class: 'fine center-text' }, `${S.config.event} · v${APP_VERSION}`)));
 }
 
+/** "Unfinished: Qual 12 · Team 254" with Discard / Resume. */
+function unfinishedNotice() {
+  return h('div', { class: 'notice' },
+    h('div', null, h('strong', null, 'Unfinished: '), `${recLabel(S.draft)}${S.draft.correction ? ' (correction)' : ''}`),
+    h('div', { class: 'btn-row' },
+      h('button', { class: 'btn ghost', onclick: discardDraft }, 'Discard'),
+      h('button', { class: 'btn primary', onclick: () => show('form', formScreen) }, 'Resume')));
+}
+
+// ---------- Pit scouting home (iPad set to "Pit scout") ----------
+/** Teams to visit: the event list from the config QR, plus the schedule's teams and any already scouted here. */
+function pitTeams() {
+  const teams = new Set(S.config.teams || []);
+  for (const t of Object.values(scheduleMatches() || {}).flat()) teams.add(t);
+  for (const r of S.records) if (isPitRec(r)) teams.add(r.team);
+  return [...teams].filter(t => t >= 1).sort((a, b) => a - b);
+}
+const pitDoneHere = (team) => S.records.some(r => isPitRec(r) && r.team === team);
+
+function pitHomeScreen() {
+  const teams = pitTeams();
+  const done = teams.filter(pitDoneHere).length;
+  const update = S.swReg && S.swReg.waiting
+    ? h('div', { class: 'notice good' }, h('strong', null, 'App update ready. '), 'Install it between teams.',
+      h('button', { class: 'btn primary', onclick: applyUpdate }, 'Update now'))
+    : null;
+  return h('div', { class: 'screen' },
+    topbar(null, h('button', { class: 'btn ghost small', onclick: openLead }, '🔒 Lead')),
+    h('main', null,
+      installNotice(),
+      update,
+      S.draft ? unfinishedNotice() : null,
+      h('div', { class: 'station-banner' }, stationChip(PIT_STATION), h('span', { class: 'event-code' }, S.config.event)),
+      h('h1', null, 'Pit scouting'),
+      h('p', { class: 'lead' }, teams.length
+        ? `Tap a team when you reach its pit. ${done} of ${teams.length} done on this iPad.`
+        : 'No team list yet. Ask your lead to re-show the Pit scout code after importing the event, or use Other team.'),
+      h('div', { class: 'roster pit-teams' }, teams.map(t =>
+        h('button', { class: `roster-btn ${pitDoneHere(t) ? 'done' : ''}`, onclick: () => startPit(t) },
+          String(t), pitDoneHere(t) ? h('span', { class: 'pit-done' }, ' ✓') : null))),
+      h('div', { class: 'home-grid' },
+        h('button', { class: 'btn', onclick: pitOtherTeam }, 'Other team…'),
+        h('button', { class: 'btn', onclick: () => show('history', historyScreen) }, `History (${S.records.length})`),
+        h('button', { class: 'btn', onclick: () => show('who', whoScreen) }, `Scout: ${scoutName(S.scoutId)} — change`)),
+      h('p', { class: 'fine center-text' }, `${S.config.event} · v${APP_VERSION}`)));
+}
+
+async function pitOtherTeam() {
+  const team = await numberPad('Team number', { maxLength: 5 });
+  if (!team || Number(team) < 1) return;
+  startPit(Number(team));
+}
+
+async function startPit(team) {
+  const resuming = S.draft && isPitRec(S.draft) && !S.draft.correction && S.draft.team === team;
+  if (!resuming) {
+    if (S.draft && !await confirmDialog(`Discard the unfinished ${recLabel(S.draft)}?`, { ok: 'Discard', danger: true })) return;
+    if (pitDoneHere(team) && !await confirmDialog(`Team ${team} was already pit scouted on this iPad. Scout it again? (The newest answers count.)`,
+      { ok: 'Scout again' })) return;
+    S.draft = { kind: 'pit', team, scout_id: S.scoutId, values: emptyValues(PIT_FIELDS), phase: 0, correction: false };
+    await save('draft', S.draft);
+  }
+  show('form', formScreen);
+}
+
 function moveCursor(delta) {
   const keys = allKeys();
   const next = keys[keys.indexOf(S.cursor) + delta];
@@ -247,7 +318,7 @@ function moveCursor(delta) {
 
 async function discardDraft() {
   const d = S.draft;
-  if (!await confirmDialog(`Discard the unfinished ${matchLabel(d.match_key)} · Team ${d.team}? This can't be undone.`,
+  if (!await confirmDialog(`Discard the unfinished ${recLabel(d)}? This can't be undone.`,
     { ok: 'Discard', danger: true })) return;
   S.draft = null;
   await save('draft', null);
@@ -289,7 +360,7 @@ async function scanSchedule() {
 async function startMatch(key, team) {
   if (!draftFor(key, team)) {
     if (S.draft && !await confirmDialog(
-      `Discard the unfinished ${matchLabel(S.draft.match_key)} · Team ${S.draft.team}?`, { ok: 'Discard', danger: true })) return;
+      `Discard the unfinished ${recLabel(S.draft)}?`, { ok: 'Discard', danger: true })) return;
     S.draft = {
       match_key: key, team, station: S.config.station, scout_id: S.scoutId,
       values: emptyValues(), phase: 0, correction: false,
@@ -301,26 +372,27 @@ async function startMatch(key, team) {
 
 async function correctRecord(rec) {
   if (S.draft && !await confirmDialog(
-    `Discard the unfinished ${matchLabel(S.draft.match_key)} · Team ${S.draft.team} to start this correction?`,
+    `Discard the unfinished ${recLabel(S.draft)} to start this correction?`,
     { ok: 'Discard', danger: true })) return;
-  // Same match + team + scout as the original, so the laptop treats it as a replacement.
-  S.draft = {
-    match_key: rec.match_key, team: rec.team, station: rec.station, scout_id: rec.scout_id,
-    values: { ...rec.values }, phase: 0, correction: true,
-  };
+  // Same match (or pit) + team + scout as the original, so the laptop treats it as a replacement.
+  S.draft = isPitRec(rec)
+    ? { kind: 'pit', team: rec.team, scout_id: rec.scout_id, values: { ...rec.values }, phase: 0, correction: true }
+    : { match_key: rec.match_key, team: rec.team, station: rec.station, scout_id: rec.scout_id,
+      values: { ...rec.values }, phase: 0, correction: true };
   await save('draft', S.draft);
   show('form', formScreen);
 }
 
 function formScreen() {
   const d = S.draft;
+  const PH = phasesOf(d), FL = fieldsOf(d);   // match form or pit form
   let controls = {};
   let showMissing = false;
 
   const body = h('div', { class: 'phase-body' });
-  const tabs = PHASES.map((p, i) => h('button', { class: 'tab', onclick: () => goPhase(i) }, p.label));
+  const tabs = PH.map((p, i) => h('button', { class: 'tab', onclick: () => goPhase(i) }, p.label));
   const backBtn = h('button', { class: 'btn ghost', onclick: () => (d.phase > 0 ? goPhase(d.phase - 1) : route()) });
-  const nextBtn = h('button', { class: 'btn primary', onclick: () => (d.phase < PHASES.length - 1 ? goPhase(d.phase + 1) : submit()) });
+  const nextBtn = h('button', { class: 'btn primary', onclick: () => (d.phase < PH.length - 1 ? goPhase(d.phase + 1) : submit()) });
 
   function setValue(f, v) {
     d.values[f.key] = v;
@@ -337,15 +409,15 @@ function formScreen() {
   }
 
   function refresh() {
-    const missing = new Set(missingRequired(d.values).map(f => f.key));
+    const missing = new Set(missingRequired(d.values, FL).map(f => f.key));
     tabs.forEach((t, i) => {
       t.classList.toggle('on', i === d.phase);
-      t.classList.toggle('needs', showMissing && FIELDS.some(f => f.phase === PHASES[i].id && missing.has(f.key)));
+      t.classList.toggle('needs', showMissing && FL.some(f => f.phase === PH[i].id && missing.has(f.key)));
     });
     for (const [k, c] of Object.entries(controls)) c.el.classList.toggle('missing', showMissing && missing.has(k));
-    backBtn.textContent = d.phase > 0 ? `◀ ${PHASES[d.phase - 1].label}` : '◀ Home';
-    const last = d.phase === PHASES.length - 1;
-    nextBtn.textContent = last ? 'Submit ⚡' : `${PHASES[d.phase + 1].label} ▶`;
+    backBtn.textContent = d.phase > 0 ? `◀ ${PH[d.phase - 1].label}` : '◀ Home';
+    const last = d.phase === PH.length - 1;
+    nextBtn.textContent = last ? 'Submit ⚡' : `${PH[d.phase + 1].label} ▶`;
     nextBtn.classList.toggle('submit', last);
   }
 
@@ -354,7 +426,7 @@ function formScreen() {
     save('draft', d);
     controls = {};
     body.replaceChildren();
-    for (const f of FIELDS.filter(x => x.phase === PHASES[i].id)) {
+    for (const f of FL.filter(x => x.phase === PH[i].id)) {
       const c = renderField(f, () => d.values[f.key], v => setValue(f, v));
       controls[f.key] = c;
       body.append(c.el);
@@ -364,10 +436,10 @@ function formScreen() {
   }
 
   async function submit() {
-    const missing = missingRequired(d.values);
+    const missing = missingRequired(d.values, FL);
     if (missing.length) {
       showMissing = true;
-      goPhase(PHASES.findIndex(p => p.id === missing[0].phase));
+      goPhase(PH.findIndex(p => p.id === missing[0].phase));
       toast(`Still needed: ${missing.map(f => f.label).join(', ')}`, 'bad');
       const first = controls[missing[0].key];
       if (first) first.el.scrollIntoView({ block: 'center' });
@@ -383,12 +455,13 @@ function formScreen() {
     }
   }
 
-  const screen = h('div', { class: `screen form-screen ${isRed(d.station) ? 'red' : 'blue'}` },
+  const station = isPitRec(d) ? PIT_STATION : d.station;
+  const screen = h('div', { class: `screen form-screen ${sideClass(station)}` },
     h('div', { class: 'form-head' },
       h('div', { class: 'form-title' },
-        h('span', null, matchLabel(d.match_key)),
+        h('span', null, isPitRec(d) ? 'Pit' : matchLabel(d.match_key)),
         h('strong', { class: 'form-team' }, `Team ${d.team}`),
-        stationChip(d.station),
+        stationChip(station),
         d.correction ? h('span', { class: 'tag warn' }, 'Correction') : null),
       h('nav', { class: 'tabs' }, tabs)),
     h('main', null, body),
@@ -398,17 +471,24 @@ function formScreen() {
 }
 
 async function saveRecord(d) {
-  const rec = {
-    app_version: APP_VERSION, event: S.config.event, match_key: d.match_key, team: d.team,
-    scout_id: d.scout_id, station: d.station, ts: Math.floor(Date.now() / 1000), values: { ...d.values },
-  };
-  rec.qr = encodeRecord(rec);
+  const ts = Math.floor(Date.now() / 1000);
+  let rec;
+  if (isPitRec(d)) {
+    rec = { kind: 'pit', app_version: APP_VERSION, event: S.config.event, team: d.team, scout_id: d.scout_id, ts, values: { ...d.values } };
+    rec.qr = encodePitRecord(rec);
+  } else {
+    rec = {
+      app_version: APP_VERSION, event: S.config.event, match_key: d.match_key, team: d.team,
+      scout_id: d.scout_id, station: d.station, ts, values: { ...d.values },
+    };
+    rec.qr = encodeRecord(rec);
+  }
   rec.correction = !!d.correction;
   rec.id = await db.addRecord(rec);
   S.records.push(rec);
   S.draft = null;
   await save('draft', null);
-  if (!d.correction && d.match_key === S.cursor) {
+  if (!isPitRec(d) && !d.correction && d.match_key === S.cursor) {
     const keys = allKeys();
     const next = keys[keys.indexOf(d.match_key) + 1];
     if (next) { S.cursor = next; save('cursor', next); }
@@ -418,7 +498,7 @@ async function saveRecord(d) {
 
 // ---------- QR + history ----------
 function qrScreen(rec, fresh) {
-  const superseded = S.records.some(r => r !== rec && recordKey(r) === recordKey(rec) && r.ts > rec.ts);
+  const superseded = S.records.some(r => r !== rec && isPitRec(r) === isPitRec(rec) && keyOf(r) === keyOf(rec) && r.ts > rec.ts);
   return h('div', { class: 'screen' },
     topbar(fresh ? backButton('Home', route) : backButton('◀ History', () => show('history', historyScreen))),
     h('main', { class: 'qr-main' },
@@ -426,20 +506,20 @@ function qrScreen(rec, fresh) {
       h('h2', { class: 'qr-title' }, 'Show this to the scan station'),
       qrElement(rec.qr, 'qr big'),
       h('div', { class: 'qr-meta' },
-        h('div', { class: 'qr-meta-main' }, `${matchLabel(rec.match_key)} · Team ${rec.team}`, stationChip(rec.station)),
+        h('div', { class: 'qr-meta-main' }, recLabel(rec), stationChip(isPitRec(rec) ? PIT_STATION : rec.station)),
         h('div', null, `${scoutName(rec.scout_id)} · ${fmtTime(rec.ts)}`),
         rec.correction ? h('span', { class: 'tag warn' }, 'Correction') : null,
         superseded ? h('span', { class: 'tag' }, 'Replaced by a newer record') : null),
       h('p', { class: 'fine' }, "Won't scan? Turn the screen brightness up."),
       fresh
-        ? h('button', { class: 'btn primary big', onclick: route }, 'Next match ▶')
+        ? h('button', { class: 'btn primary big', onclick: route }, isPitRec(rec) ? 'Next team ▶' : 'Next match ▶')
         : h('button', { class: 'btn', onclick: () => correctRecord(rec) }, 'Correct this record'),
       fresh ? null : valuesTable(rec)));
 }
 
 function valuesTable(rec) {
   return h('table', { class: 'values' },
-    h('tbody', null, FIELDS.map(f =>
+    h('tbody', null, fieldsOf(rec).map(f =>
       h('tr', null, h('th', null, f.label), h('td', null, displayValue(f, rec.values[f.key]))))));
 }
 
@@ -453,7 +533,7 @@ function historyScreen() {
       list.length
         ? h('div', { class: 'history' }, list.map(r =>
           h('button', { class: 'history-row', onclick: () => show('qr', () => qrScreen(r, false)) },
-            h('span', { class: 'h-match' }, matchLabel(r.match_key)),
+            h('span', { class: 'h-match' }, isPitRec(r) ? 'Pit' : matchLabel(r.match_key)),
             h('span', { class: 'h-team' }, `Team ${r.team}`),
             h('span', { class: 'h-meta' }, `${scoutName(r.scout_id)} · ${fmtTime(r.ts)}`),
             r.correction ? h('span', { class: 'tag warn' }, 'Correction') : null)))
@@ -485,10 +565,11 @@ function leadScreen() {
     h('main', null,
       h('h1', null, 'Lead menu'),
       h('div', { class: 'menu' },
-        item('Set team for this match', S.cursor ? `Override the team for ${matchLabel(S.cursor)}` : 'No match selected',
+        // Match-only tools: a pit iPad picks teams from its list instead.
+        isPitIpad() ? null : item('Set team for this match', S.cursor ? `Override the team for ${matchLabel(S.cursor)}` : 'No match selected',
           overrideTeam, !S.cursor),
-        item('Add a match by hand', 'When the schedule is missing a match', addManualMatch),
-        item('Jump to a match', 'Choose which match is up next', () => show('jump', jumpScreen)),
+        isPitIpad() ? null : item('Add a match by hand', 'When the schedule is missing a match', addManualMatch),
+        isPitIpad() ? null : item('Jump to a match', 'Choose which match is up next', () => show('jump', jumpScreen)),
         item('Show all QR codes', `Replay all ${S.records.length} records so the laptop can re-scan them`,
           () => show('replay', () => replayScreen(0)), !S.records.length),
         item('Re-scan config QR', 'Change event, station, PIN or roster', scanConfig)),
@@ -575,7 +656,7 @@ function replayScreen(i) {
     h('main', { class: 'qr-main' },
       h('h2', { class: 'qr-title' }, `Record ${i + 1} of ${list.length}`),
       qrElement(rec.qr, 'qr big'),
-      h('div', { class: 'qr-meta' }, `${matchLabel(rec.match_key)} · Team ${rec.team} · ${scoutName(rec.scout_id)}`),
+      h('div', { class: 'qr-meta' }, `${recLabel(rec)} · ${scoutName(rec.scout_id)}`),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn', disabled: i === 0, onclick: () => show('replay', () => replayScreen(i - 1)) }, '◀ Previous'),
         h('button', { class: 'btn primary', disabled: i === list.length - 1, onclick: () => show('replay', () => replayScreen(i + 1)) }, 'Next ▶'))));

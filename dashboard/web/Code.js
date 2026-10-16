@@ -130,6 +130,8 @@ function allTeams_(ss) {
   readTab_(ss, TAB.EXTERNAL).forEach(function (e) { ext[Number(e.team)] = e; add(e.team, ''); });
   var mentor = {};
   readTab_(ss, TAB.MENTOR).forEach(function (m) { mentor[Number(m.team)] = m; });
+  var pit = latestPit_(ss);
+  Object.keys(pit).forEach(function (team) { add(team, ''); });   // pit scouted before any match
 
   Object.keys(byTeam).forEach(function (k) {
     var t = byTeam[k], e = ext[t.team] || {}, m = mentor[t.team] || {};
@@ -141,8 +143,66 @@ function allTeams_(ss) {
     t.shared_note_by = m.shared_note_by || '';
     t.shared_note_at = m.shared_note_at ? String(m.shared_note_at) : '';
     t.picked = !!m.picked;   // taken by another alliance at alliance selection
+    t.pit = pit[t.team] || null;
+    var tr = trenchStatus_(t, t.pit);
+    t.trench = tr.status; t.trench_label = tr.label; t.trench_score = tr.score;
+    t.shooter_label = shooterLabel_(t.pit);
   });
   return byTeam;
+}
+
+/**
+ * The newest pit record per team for the current event (any scout), as display
+ * text: { team: { by, at, <pit field key>: 'Swerve' | 'Left of Hub, Right of Hub' | 40 | '' } }.
+ */
+function latestPit_(ss) {
+  var event = kvGetAll_(ss).event;
+  var best = {};
+  readTab_(ss, TAB.PIT).forEach(function (r) {
+    if (event && r.event !== event) return;
+    var team = Number(r.team);
+    if (!best[team] || Number(r.ts) > Number(best[team].ts)) best[team] = r;
+  });
+  var out = {};
+  Object.keys(best).forEach(function (team) {
+    var r = best[team], values = {};
+    try { values = JSON.parse(r.values_json || '{}'); } catch (e) { /* unreadable row: show nothing */ }
+    var view = { by: String(r.scout_name || r.scout_id || ''), at: r.scouted_at ? String(r.scouted_at) : '' };
+    PIT_FIELDS.forEach(function (f) { view[f.key] = pitText_(f, values[f.key]); });
+    out[team] = view;
+  });
+  return out;
+}
+
+/** One pit value as display text; '' = not answered (a counter left at 0 counts as not answered). */
+function pitText_(f, v) {
+  if (v === null || v === undefined) return '';
+  if (f.type === 'enum') return f.options[v] || '';
+  if (f.type === 'multi') return f.options.filter(function (_, i) { return v & (1 << i); }).join(', ');
+  if (f.type === 'counter') return Number(v) > 0 ? Number(v) : '';
+  if (f.type === 'bool') return v ? 'Yes' : 'No';
+  return String(v);
+}
+
+/**
+ * Can it go under the trench? What scouts SAW beats what the pit SAID.
+ * Returns { status: 'seen' | 'claimed' | 'bump' | '', label, score (0..1, for Fit) }.
+ */
+function trenchStatus_(t, pit) {
+  var n = Number(t.route_n) || 0;
+  var seen = Math.round((Number(t.trench_rate) || 0) * n), bump = Math.round((Number(t.bump_rate) || 0) * n);
+  var claim = pit ? pit.fits_trench : '';
+  if (seen) return { status: 'seen', label: 'Trench ✓ (seen ' + seen + '/' + n + ')', score: 1 };
+  if (claim === 'Yes') return { status: 'claimed', label: 'Trench (pit says' + (n ? '; not seen in ' + n + ')' : ')'), score: n >= 3 ? 0.4 : 0.7 };
+  if (claim === 'No' || (n >= 3 && bump)) return { status: 'bump', label: 'Bump only', score: 0 };
+  return { status: '', label: '', score: 0 };
+}
+
+/** "Turret ×2 · shoots moving", from the pit record; '' if unknown. */
+function shooterLabel_(pit) {
+  if (!pit || !pit.shooter_type) return '';
+  return pit.shooter_type + (Number(pit.shooter_count) > 1 ? ' ×' + pit.shooter_count : '') +
+    (pit.shoots_moving === 'Yes' ? ' · shoots moving' : '');
 }
 
 /** Everything the pick list screen needs, in one call. */

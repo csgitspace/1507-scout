@@ -10,8 +10,10 @@
 //   POST /api/settings        { event, pin, roster, tbaKey }
 //   POST /api/schedule        { text } | { practice: { teams, count } }
 //   POST /api/schedule/tba    import schedule + teams from The Blue Alliance
-//   GET  /api/codes           iPad config codes (one per station) + schedule parts
+//   GET  /api/codes           iPad config codes (one per station + Pit scout) + schedule parts
+//   GET  /api/pit             pit scouting: which teams are done
 //   GET  /api/export.csv      current records as a spreadsheet
+//   GET  /api/pit.csv         current pit records as a spreadsheet
 //   GET  /api/sync            dashboard sync status
 //   POST /api/sync/now        push to the dashboard right now
 //   POST /api/sync/config     { url, token, dashboardUrl } — blank = use data/dashboard.json
@@ -28,8 +30,8 @@ import { coverage } from './coverage.js';
 import { importEvent } from './tba.js';
 import { latestPlayed } from './intel.js';
 import { EVENT_RE } from '../shared/codec.js';
-import { FIELDS, displayValue } from '../shared/fields.js';
-import { STATIONS, orderedKeys, matchLabel } from '../shared/schedule.js';
+import { FIELDS, PIT_FIELDS, displayValue } from '../shared/fields.js';
+import { STATIONS, PIT_STATION, orderedKeys, matchLabel } from '../shared/schedule.js';
 import { encodeConfig, encodeSchedule } from '../shared/setup-codes.js';
 import { parseRoster, rosterToText, parseScheduleText, practiceSchedule } from '../shared/lead-input.js';
 
@@ -48,6 +50,14 @@ class HttpError extends Error {
 export function createHandler({ store, sync = null, intel = null, fetchImpl = fetch }) {
   const event = () => store.getSetting('event');
   const scheduleMatches = (ev) => orderedKeys(store.schedule(ev)).map(k => ({ key: k, teams: store.schedule(ev)[k] }));
+
+  /** The event's teams: TBA's team list, else everyone in the schedule. [{ team, name }] */
+  function eventTeams(ev) {
+    const listed = store.teams(ev);
+    if (listed.length) return listed;
+    const nums = new Set(Object.values(store.schedule(ev)).flat());
+    return [...nums].sort((a, b) => a - b).map(team => ({ team, name: null }));
+  }
 
   function setSchedule(ev, matches) {
     store.replaceSchedule(ev, matches);
@@ -148,6 +158,19 @@ export function createHandler({ store, sync = null, intel = null, fetchImpl = fe
       return { ok: true, matches: data.matches.length, teams: data.teams.length, name: data.name };
     },
 
+    'GET /api/pit': () => {
+      const ev = event();
+      if (!ev) return { teams: [], done: 0, total: 0, extras: [] };
+      const names = Object.fromEntries(store.getSetting('roster', []).map(s => [s.id, s.name]));
+      const byTeam = {};
+      for (const p of store.currentPit(ev)) (byTeam[p.team] ||= []).push({ scout: names[p.scout_id] || p.scout_id, ts: p.ts });
+      const listed = eventTeams(ev);
+      const teams = listed.map(t => ({ team: t.team, name: t.name, scouts: byTeam[t.team] || [] }));
+      const known = new Set(listed.map(t => t.team));
+      const extras = Object.keys(byTeam).map(Number).filter(t => !known.has(t)).sort((a, b) => a - b);
+      return { teams, done: teams.filter(t => t.scouts.length).length, total: teams.length, extras };
+    },
+
     'GET /api/sync': () => (sync ? sync.getStatus() : { configured: false, lastError: 'Sync not available' }),
 
     'POST /api/sync/now': () => (sync ? sync.syncOnce() : { configured: false, lastError: 'Sync not available' }),
@@ -177,9 +200,13 @@ export function createHandler({ store, sync = null, intel = null, fetchImpl = fe
       const roster = store.getSetting('roster', []);
       if (!ev || !pin || !roster.length) throw new HttpError(400, 'Save the event settings first');
       const matches = scheduleMatches(ev);
+      const teams = eventTeams(ev).map(t => t.team);
       return {
         event: ev,
-        config: STATIONS.map(station => ({ station, code: encodeConfig({ event: ev, station, pin, roster }) })),
+        config: [
+          ...STATIONS.map(station => ({ station, code: encodeConfig({ event: ev, station, pin, roster }) })),
+          { station: PIT_STATION, teams: teams.length, code: encodeConfig({ event: ev, station: PIT_STATION, pin, roster, teams }) },
+        ],
         schedule: matches.length ? encodeSchedule({ event: ev, rev: store.getSetting(`scheduleRev:${ev}`) || 'r1', matches }) : [],
         matches: matches.length,
       };
@@ -196,6 +223,18 @@ export function createHandler({ store, sync = null, intel = null, fetchImpl = fe
       r.event, r.match_key, matchLabel(r.match_key), r.team, r.station, r.scout_id, names[r.scout_id] || '',
       new Date(r.ts * 1000).toISOString(), r.app_version,
       ...FIELDS.map(f => (f.type === 'counter' ? r.values[f.key] : displayValue(f, r.values[f.key]))),
+    ]);
+    return [header, ...rows].map(row => row.map(cell).join(',')).join('\r\n');
+  }
+
+  function exportPitCsv() {
+    const ev = event();
+    const names = Object.fromEntries(store.getSetting('roster', []).map(s => [s.id, s.name]));
+    const cell = (v) => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const header = ['event', 'team', 'scout_id', 'scout_name', 'scouted_at', 'app_version', ...PIT_FIELDS.map(f => f.key)];
+    const rows = (ev ? store.currentPit(ev) : []).map(r => [
+      r.event, r.team, r.scout_id, names[r.scout_id] || '', new Date(r.ts * 1000).toISOString(), r.app_version,
+      ...PIT_FIELDS.map(f => (f.type === 'counter' ? r.values[f.key] : displayValue(f, r.values[f.key]))),
     ]);
     return [header, ...rows].map(row => row.map(cell).join(',')).join('\r\n');
   }
@@ -234,13 +273,14 @@ export function createHandler({ store, sync = null, intel = null, fetchImpl = fe
   return async function handler(req, res) {
     const path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
     try {
-      if (path === '/api/export.csv') {
+      if (path === '/api/export.csv' || path === '/api/pit.csv') {
         const ev = event() || 'scouting';
+        const pit = path === '/api/pit.csv';
         res.writeHead(200, {
           'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="${ev}-records-${new Date().toISOString().slice(0, 10)}.csv"`,
+          'Content-Disposition': `attachment; filename="${ev}-${pit ? 'pit' : 'records'}-${new Date().toISOString().slice(0, 10)}.csv"`,
         });
-        return res.end('﻿' + exportCsv()); // BOM so Excel reads UTF-8 notes correctly
+        return res.end('﻿' + (pit ? exportPitCsv() : exportCsv())); // BOM so Excel reads UTF-8 notes correctly
       }
       const route = routes[`${req.method} ${path}`];
       if (route) {

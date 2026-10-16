@@ -85,6 +85,13 @@ table.grid td.cell { display: table-cell; min-width: 90px; }
 .cell.multi { background: #0b2148; color: #9cc2ff; }
 .cell.mismatch { background: #3a3000; color: var(--gold); }
 
+/* Pit scouting coverage: one tile per team */
+.pit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.pit-cell { display: inline-block; border-radius: 8px; padding: 6px 8px; font-weight: 800; text-align: center; font-size: 1.05rem; }
+.pit-cell small { display: block; font-weight: 500; font-size: 0.7rem; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pit-cell.ok { background: #06361b; color: var(--good); }
+.pit-cell.missing { background: #3d0a10; color: #ff9a9a; border: 1px dashed var(--bad); }
+
 /* ---------- Tables ---------- */
 table.data { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 table.data th { text-align: left; color: var(--muted); font-weight: 700; border-bottom: 1px solid var(--line); padding: 8px 6px; white-space: nowrap; }

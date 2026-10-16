@@ -11,7 +11,7 @@
 // Every attempt, rejected or not, is logged in `scans`.
 // ==============================================================================
 
-import { decodeRecord, identifyCode, recordKey } from '../shared/codec.js';
+import { decodeRecord, decodePitRecord, identifyCode, recordKey, pitRecordKey } from '../shared/codec.js';
 import { teamFor, matchLabel, stationLabel } from '../shared/schedule.js';
 
 export function ingest(store, text, { source = 'manual', now = Date.now() } = {}) {
@@ -27,6 +27,7 @@ export function ingest(store, text, { source = 'manual', now = Date.now() } = {}
   if (!event) return reject('Set the event code on the Event setup screen first');
   const kind = identifyCode(raw);
   if (kind === 'config' || kind === 'schedule') return reject(`That's an iPad ${kind} code, not a match record`);
+  if (kind === 'pit') return ingestPit(store, raw, event, { source, now, reject });
 
   const res = decodeRecord(raw, { event });
   if (!res.ok) return reject(res.reason);
@@ -60,5 +61,34 @@ export function ingest(store, text, { source = 'manual', now = Date.now() } = {}
       reason: warnings.join('; ') || null, recordId: id,
     });
     return { accepted: true, outcome, record: { ...rec, id }, warnings };
+  });
+}
+
+/** A pit record: same outcomes as a match record; result has kind: 'pit'. */
+function ingestPit(store, raw, event, { source, now, reject }) {
+  const res = decodePitRecord(raw, { event });
+  if (!res.ok) return reject(res.reason);
+  const rec = res.record;
+
+  return store.transaction(() => {
+    const existing = store.pitByQr(raw);
+    if (existing) {
+      store.insertScan({ scannedAt: now, raw, source, accepted: true, outcome: 'rescan', pitId: existing.id });
+      return { accepted: true, kind: 'pit', outcome: 'rescan', record: existing, warnings: [] };
+    }
+    const current = store.currentPitFor(event, pitRecordKey(rec));
+    const id = store.insertPit(rec, raw, now);
+    const outcome = !current ? 'new' : current.ts > rec.ts ? 'older' : 'replaces';
+
+    const warnings = [];
+    // The event's teams: TBA's list, else everyone in the schedule (same as the pit coverage panel).
+    let teams = store.teams(event).map(t => t.team);
+    if (!teams.length) teams = Object.values(store.schedule(event)).flat();
+    if (teams.length && !teams.includes(rec.team)) warnings.push(`Team ${rec.team} isn't on this event's team list`);
+    const others = store.currentPit(event).filter(p => p.team === rec.team && p.scout_id !== rec.scout_id);
+    if (others.length) warnings.push(`Team ${rec.team} was also pit scouted by ${others.map(o => o.scout_id).join(', ')} — both kept`);
+
+    store.insertScan({ scannedAt: now, raw, source, accepted: true, outcome, reason: warnings.join('; ') || null, pitId: id });
+    return { accepted: true, kind: 'pit', outcome, record: { ...rec, id }, warnings };
   });
 }

@@ -6,15 +6,20 @@
 //
 //   W|<app_ver>|<schema_ver>|<event>|<match_key>|<team>|<scout_id>|<station>|<unix_ts>|<field values...>|<crc32>
 //
-// Field values appear in the order of FIELDS in fields.js. Runs unchanged in
-// the browser (iPad app) and in Node (laptop app, tests).
+// Pit records (one per team, from an iPad set to "Pit scout"):
+//   WP|<app_ver>|<pit_schema_ver>|<event>|<team>|<scout_id>|<unix_ts>|<pit field values...>|<crc32>
+//
+// Field values appear in the order of FIELDS (or PIT_FIELDS) in fields.js.
+// Runs unchanged in the browser (iPad app) and in Node (laptop app, tests).
 // ==============================================================================
 
-import { FIELDS, SCHEMA_VERSION } from './fields.js';
+import { FIELDS, SCHEMA_VERSION, PIT_FIELDS, PIT_SCHEMA_VERSION } from './fields.js';
 import { parseMatchKey, STATIONS } from './schedule.js';
 
 export const RECORD_TAG = 'W';
+export const PIT_TAG = 'WP';
 const HEADER_LEN = 9; // W, app_ver, schema_ver, event, match_key, team, scout_id, station, ts
+const PIT_HEADER_LEN = 7; // WP, app_ver, pit_schema_ver, event, team, scout_id, ts
 
 // ---------- CRC32 ----------
 const CRC_TABLE = (() => {
@@ -55,10 +60,10 @@ export function decodeFrame(text) {
   return body.split('|');
 }
 
-/** 'record' | 'config' | 'schedule' | null — what kind of code was scanned (by prefix only). */
+/** 'record' | 'pit' | 'config' | 'schedule' | null — what kind of code was scanned (by prefix only). */
 export function identifyCode(text) {
   const tag = String(text ?? '').split('|', 1)[0];
-  return { W: 'record', WCFG: 'config', WSCH: 'schedule' }[tag] || null;
+  return { W: 'record', WP: 'pit', WCFG: 'config', WSCH: 'schedule' }[tag] || null;
 }
 
 // ---------- Field value encoding ----------
@@ -135,13 +140,8 @@ export function decodeRecord(text, opts = {}) {
   if (!STATIONS.includes(station)) return { ok: false, reason: `Bad station "${station}"` };
   if (!/^\d{9,11}$/.test(ts)) return { ok: false, reason: `Bad timestamp "${ts}"` };
 
-  const values = {};
-  for (let i = 0; i < FIELDS.length; i++) {
-    const f = FIELDS[i];
-    const v = decodeValue(f, parts[HEADER_LEN + i]);
-    if (v === undefined) return { ok: false, reason: `Bad value for ${f.key}: "${parts[HEADER_LEN + i]}"` };
-    values[f.key] = v;
-  }
+  const values = decodeValues(FIELDS, parts, HEADER_LEN);
+  if (values.reason) return { ok: false, reason: values.reason };
 
   return {
     ok: true,
@@ -152,10 +152,65 @@ export function decodeRecord(text, opts = {}) {
   };
 }
 
+/** { key: value } for fields[i] = parts[start + i], or { reason } for the first bad value. */
+function decodeValues(fields, parts, start) {
+  const values = {};
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
+    const v = decodeValue(f, parts[start + i]);
+    if (v === undefined) return { reason: `Bad value for ${f.key}: "${parts[start + i]}"` };
+    values[f.key] = v;
+  }
+  return values;
+}
+
 /**
  * Record identity: match + team + scout. A newer record with the same key
  * supersedes an older one (correction); two scouts on one robot are both kept.
  */
 export function recordKey(rec) {
   return `${rec.match_key}|${rec.team}|${rec.scout_id}`;
+}
+
+// ---------- Pit records ----------
+/** rec: { app_version, event, team, scout_id, ts, values } (values per PIT_FIELDS) */
+export function encodePitRecord(rec) {
+  return encodeFrame([
+    PIT_TAG, clean(rec.app_version), PIT_SCHEMA_VERSION, rec.event, rec.team, rec.scout_id, rec.ts,
+    ...PIT_FIELDS.map(f => encodeValue(f, rec.values[f.key])),
+  ]);
+}
+
+/** Like decodeRecord, for pit codes. Options: { event }. */
+export function decodePitRecord(text, opts = {}) {
+  if (identifyCode(text) !== 'pit') return { ok: false, reason: 'Not a pit record QR code' };
+  const parts = decodeFrame(text);
+  if (!parts) return { ok: false, reason: 'Checksum failed — garbled scan, try again' };
+
+  const [, app_version, schema, event, team, scout_id, ts] = parts;
+  if (Number(schema) !== PIT_SCHEMA_VERSION) {
+    return { ok: false, reason: `Pit form version mismatch: iPad has v${schema}, laptop expects v${PIT_SCHEMA_VERSION}. Update the iPad app.` };
+  }
+  if (parts.length !== PIT_HEADER_LEN + PIT_FIELDS.length) {
+    return { ok: false, reason: `Wrong number of pit fields (${parts.length - PIT_HEADER_LEN}, expected ${PIT_FIELDS.length})` };
+  }
+  if (!EVENT_RE.test(event)) return { ok: false, reason: `Bad event code "${event}"` };
+  if (opts.event && event !== opts.event) {
+    return { ok: false, reason: `Wrong event: pit record is for ${event}, laptop is set to ${opts.event}` };
+  }
+  if (!/^\d{1,5}$/.test(team) || Number(team) < 1) return { ok: false, reason: `Bad team number "${team}"` };
+  if (!SCOUT_ID_RE.test(scout_id)) return { ok: false, reason: `Bad scout ID "${scout_id}"` };
+  if (!/^\d{9,11}$/.test(ts)) return { ok: false, reason: `Bad timestamp "${ts}"` };
+
+  const values = decodeValues(PIT_FIELDS, parts, PIT_HEADER_LEN);
+  if (values.reason) return { ok: false, reason: values.reason };
+  return {
+    ok: true,
+    record: { app_version, schema_version: PIT_SCHEMA_VERSION, event, team: Number(team), scout_id, ts: Number(ts), values },
+  };
+}
+
+/** Pit identity: team + scout. A newer pit record from the same scout replaces the older one. */
+export function pitRecordKey(rec) {
+  return `pit|${rec.team}|${rec.scout_id}`;
 }

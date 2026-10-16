@@ -181,10 +181,13 @@ test('analyze data: per-match series in the summary, our own stats returned, old
   assert.equal(view.us.avg_total, 12);
   assert.ok(!view.teams.some(t => t.team === 1507), 'but we stay off the list');
 
-  // A Summary written before series_json existed (one column short) reads as an empty series.
+  // A Summary written before series_json existed (series_json and everything after it missing) still loads.
   const sum = ss.getSheetByName('Summary');
-  sum.data = sum.data.map(r => r.slice(0, -1));
-  assert.deepEqual(plain(loadProject('web', ss).getPickList()).teams.find(t => t.team === 254).series, []);
+  const cut = sum.data[0].indexOf('series_json');
+  sum.data = sum.data.map(r => r.slice(0, cut));
+  const old = plain(loadProject('web', ss).getPickList()).teams.find(t => t.team === 254);
+  assert.deepEqual(old.series, []);
+  assert.deepEqual(old.auto_starts, []);
 });
 
 test('loading the pick list only reads: it never creates or reformats a tab', () => {
@@ -211,4 +214,46 @@ test('alliance selection: picked is shared, never changes the pick order, surviv
   lead.savePicked(118, true);
   lead.clearPicked();
   assert.ok(plain(lead.getPickList()).teams.every(t => !t.picked));
+});
+
+test('routes and best auto: summary rates, pit claims vs what scouts saw, shooter label, Trench bot fit', () => {
+  const { ss, post } = setup();
+  const pit = (team, values) => ({ id: nextId++, event: EVENT, team, scout_id: 'pat', scout_name: 'Pat', ts: 1790000900,
+    rkey: `pit|${team}|pat`, qr: `WP|pit-${team}-${nextId}`, app_version: '1.1.0', schema_version: 1,
+    values: { drivetrain: 0, fits_trench: 0, crosses_bump: 0, hopper_capacity: 40, shooter_type: 2, shooter_count: 2, shoots_moving: 0,
+      auto_starts: 6, auto_best_fuel: 8, auto_climb_claim: 0, auto_notes: 'Left: 8 + climb', climb_claim: 3, pit_notes: '', ...values } });
+  post({
+    records: [
+      // 254: seen under the trench in 1 of 2 matches; best auto from Left of Hub
+      rec({ match: 'qm1', team: 254, values: { route_used: 1, auto_start_position: 1, auto_fuel_scored: 8, auto_climb: true } }),
+      rec({ match: 'qm2', team: 254, values: { route_used: 2, auto_start_position: 0, auto_fuel_scored: 3 } }),
+      // 118: pit says trench, scouts never saw it (3 matches, bump only)
+      rec({ match: 'qm1', team: 118, station: 'R2', values: { route_used: 2 } }),
+      rec({ match: 'qm2', team: 118, station: 'R2', values: { route_used: 2 } }),
+      rec({ match: 'qm3', team: 118, station: 'R2', values: { route_used: 2 } }),
+      // 33: pit says it doesn't fit; 2056: only pit scouted
+      rec({ match: 'qm1', team: 33, station: 'R3', values: {} }),
+    ],
+    pit: [pit(254, {}), pit(118, {}), pit(33, { fits_trench: 1, shooter_type: 0, shooter_count: 1, shoots_moving: 1 }), pit(2056, {})],
+  });
+  const web = loadProject('web', ss);
+  web.saveGaps(['trench']);
+  const teams = Object.fromEntries(plain(web.getPickList()).teams.map(t => [t.team, t]));
+
+  assert.equal(teams[254].route_n, 2);
+  assert.equal(teams[254].trench_rate, 0.5);
+  assert.equal(teams[254].trench_label, 'Trench ✓ (seen 1/2)');
+  assert.deepEqual(teams[254].auto_starts[0], { pos: 'Left of Hub', n: 1, fuel: 8, climb: 1 }, 'best auto first');
+  assert.equal(teams[254].fit, 'High');
+  assert.equal(teams[118].trench, 'claimed');
+  assert.equal(teams[118].trench_label, 'Trench (pit says; not seen in 3)');
+  assert.equal(teams[33].trench, 'bump');
+  assert.equal(teams[33].shooter_label, 'Fixed');
+  assert.equal(teams[254].shooter_label, 'Turret ×2 · shoots moving');
+  assert.equal(teams[254].pit.auto_starts, 'Left of Hub, Right of Hub');
+  assert.equal(teams[254].pit.hopper_capacity, 40);
+  assert.equal(teams[254].pit.by, 'Pat');
+  assert.ok(teams[2056], 'a team only pit scouted still appears');
+  assert.equal(teams[2056].matches, 0);
+  assert.equal(teams[2056].trench, 'claimed');
 });

@@ -16,6 +16,7 @@ var TAB = {
   CONFIG: 'Config',         // key / value: last sync, event, our robot's gaps, data health
   EXTERNAL: 'External',     // per team: Statbotics EPA, TBA OPR + rank — reference data, never scouting data
   RESULTS: 'Results',       // per played match: TBA scores
+  PIT: 'Pit',               // every pit scouting record version — written only by the sync endpoint
 };
 
 var MENTOR_HEADERS = ['team', 'rank', 'tag', 'shared_note', 'shared_note_by', 'shared_note_at', 'updated_by', 'updated_at', 'picked'];

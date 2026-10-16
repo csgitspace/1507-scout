@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { openDb } from '../laptop/db.js';
 import { ingest } from '../laptop/intake.js';
 import { createSync } from '../laptop/sync.js';
-import { encodeRecord } from '../shared/codec.js';
-import { emptyValues } from '../shared/fields.js';
+import { encodeRecord, encodePitRecord } from '../shared/codec.js';
+import { emptyValues, PIT_FIELDS } from '../shared/fields.js';
 import { FakeSpreadsheet, loadProject } from './helpers/fake-apps-script.js';
 
 const EVENT = '2026test';
@@ -158,4 +158,30 @@ test('end to end: laptop sync -> real sync-endpoint code -> Sheet, twice, no dup
   assert.equal(ss.getSheetByName('Raw').objects().length, 4);
   assert.equal(ss.getSheetByName('Summary').objects().length, 4);
   assert.equal(ss.getSheetByName('Matches').objects()[0].match_key, 'qm1');
+});
+
+test('pit records sync into the Pit tab: confirmed once, never duplicated, never in Raw', async () => {
+  const store = station(2);
+  const pit = (team, ts) => encodePitRecord({ app_version: '1.1.0', event: EVENT, team, scout_id: 'ada', ts,
+    values: { ...emptyValues(PIT_FIELDS), drivetrain: 0, fits_trench: 1, shooter_type: 0, climb_claim: 1, hopper_capacity: 30 } });
+  ingest(store, pit(1, 1790001000));
+  ingest(store, pit(2, 1790001000));
+  const ss = new FakeSpreadsheet();
+  const endpoint = loadProject('sync-endpoint', ss);
+  const fetchImpl = async (url, opts) => ({
+    ok: true, status: 200, text: async () => endpoint.doPost({ postData: { contents: opts.body } }).getContent(),
+  });
+  const sync = createSync({ store, fetchImpl });
+  assert.equal(sync.getStatus().pending, 4, 'match + pit records waiting');
+  assert.equal((await sync.syncOnce()).lastError, null);
+  assert.equal(sync.getStatus().pending, 0);
+  ingest(store, pit(1, 1790002000));   // a correction
+  await sync.syncOnce();
+  await sync.syncOnce();
+  const rows = ss.getSheetByName('Pit').objects();
+  assert.equal(rows.length, 3, 'every version kept, none twice');
+  assert.equal(rows[0].fits_trench, 'No');
+  assert.equal(rows[0].scout_name, 'Ada L.');
+  assert.equal(ss.getSheetByName('Raw').objects().length, 2);
+  assert.ok(ss.getSheetByName('Pit').protections.length, 'Pit is protected');
 });

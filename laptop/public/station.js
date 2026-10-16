@@ -67,8 +67,9 @@ async function loadState() {
 function describe(r) {
   if (!r.accepted) return { kind: 'bad', big: '✗ Rejected', sub: r.reason };
   const rec = r.record;
-  const who = `${matchLabel(rec.match_key)} · Team ${rec.team}`;
-  const detail = `${stationLabel(rec.station)} · ${scoutName(rec.scout_id)}`;
+  const pit = r.kind === 'pit';
+  const who = pit ? `Pit · Team ${rec.team}` : `${matchLabel(rec.match_key)} · Team ${rec.team}`;
+  const detail = pit ? `Pit scouting · ${scoutName(rec.scout_id)}` : `${stationLabel(rec.station)} · ${scoutName(rec.scout_id)}`;
   const warn = r.warnings && r.warnings.length ? r.warnings.join(' · ') : null;
   switch (r.outcome) {
     case 'new': return { kind: warn ? 'warn' : 'good', big: `✓ ${who}`, sub: `${detail} · saved`, warn };
@@ -145,7 +146,7 @@ async function refreshScanSide() {
     class: `recent-row ${!s.accepted ? 'rejected' : s.reason ? 'warned' : 'accepted'}`,
   },
   h('span', { class: 'fine' }, fmtTime(s.scanned_at)),
-  h('strong', null, s.accepted ? `${matchLabel(s.match_key)} · ${s.team} · ${stationLabel(s.station)}` : 'Rejected'),
+  h('strong', null, !s.accepted ? 'Rejected' : s.is_pit ? `Pit · ${s.team}` : `${matchLabel(s.match_key)} · ${s.team} · ${stationLabel(s.station)}`),
   h('span', { class: 'tag' }, s.outcome),
   s.reason ? h('span', { class: 'why' }, s.reason) : null)));
   if (!scans.length) $('recent').replaceChildren(h('p', { class: 'fine' }, 'No scans yet.'));
@@ -197,6 +198,21 @@ async function refreshCoverage() {
     h('h3', null, 'Records for matches not in the schedule'),
     h('p', { class: 'fine' }, cov.extras.map(e => `${e.label} ${stationLabel(e.station)} team ${e.team} (${scoutName(e.scout_id)})`).join(' · ')))
     : '');
+  await refreshPit();
+}
+
+// ---------- Pit scouting coverage ----------
+async function refreshPit() {
+  const pit = await api('/api/pit');
+  const todo = pit.teams.filter(t => !t.scouts.length);
+  $('pit-summary').textContent = !pit.total ? 'No team list yet — import the event (or a schedule) on Event setup.'
+    : todo.length ? `${pit.done} of ${pit.total} teams pit scouted. Still to visit: ${todo.length}.`
+      : `All ${pit.total} teams pit scouted ✓`;
+  $('pit-grid').replaceChildren(...pit.teams.map(t => h('span', {
+    class: `pit-cell ${t.scouts.length ? 'ok' : 'missing'}`,
+    title: t.scouts.map(s => `${s.scout}, ${new Date(s.ts * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`).join('\n') || 'not yet',
+  }, String(t.team), t.name ? h('small', null, t.name) : null)));
+  $('pit-extras').textContent = pit.extras.length ? `Also pit scouted (not on the team list): ${pit.extras.join(', ')}` : '';
 }
 
 $('played').addEventListener('change', async (e) => {
@@ -227,7 +243,7 @@ async function refreshRecords() {
     h('thead', null, h('tr', null, ['Time', 'Source', 'Outcome', 'Record', 'Reason / warning'].map(x => h('th', null, x)))),
     h('tbody', null, scans.map(s => h('tr', { class: s.accepted ? '' : 'rejected' },
       h('td', null, fmtTime(s.scanned_at)), h('td', null, s.source || ''), h('td', null, s.outcome),
-      h('td', null, s.accepted ? `${matchLabel(s.match_key)} · ${s.team} · ${s.station} · ${s.scout_id}` : ''),
+      h('td', null, !s.accepted ? '' : s.is_pit ? `Pit · ${s.team} · ${s.scout_id}` : `${matchLabel(s.match_key)} · ${s.team} · ${s.station} · ${s.scout_id}`),
       h('td', { class: 'reason' }, s.reason || '')))));
 }
 $('records-filter').addEventListener('input', refreshRecords);
@@ -286,7 +302,8 @@ $('show-config').addEventListener('click', async () => {
   try {
     const codes = await api('/api/codes');
     $('codes').replaceChildren(h('div', { class: 'codes' }, codes.config.map(c => h('div', { class: 'code-card' },
-      h('h3', null, stationLabel(c.station)), qrElement(c.code), h('div', { class: 'sub' }, `${codes.event} · ${state.roster.length} scouts`)))));
+      h('h3', null, stationLabel(c.station)), qrElement(c.code),
+      h('div', { class: 'sub' }, `${codes.event} · ${state.roster.length} scouts${c.teams !== undefined ? ` · ${c.teams} teams` : ''}`)))));
   } catch (err) { toast(err.message, 'bad'); }
 });
 $('show-schedule').addEventListener('click', async () => {

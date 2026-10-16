@@ -72,6 +72,13 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
     };
   }
 
+  function pitPayloadFor(rec, names) {
+    return {
+      id: rec.id, qr: rec.qr, event: rec.event, rkey: rec.rkey, team: rec.team, scout_id: rec.scout_id,
+      scout_name: names[rec.scout_id] || '', ts: rec.ts, app_version: rec.app_version, schema_version: rec.schema_version, values: rec.values,
+    };
+  }
+
   function getStatus() {
     const cfg = config();
     const event = store.getSetting('event');
@@ -81,7 +88,7 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
       source: cfg.source,
       googleAccount: tokenSource && tokenSource.configured() ? tokenSource.account() : null,
       dashboardUrl: cfg.dashboardUrl,
-      pending: event ? store.countUnsynced(event) : 0,
+      pending: event ? store.countUnsynced(event) + store.countUnsyncedPit(event) : 0,
     };
   }
 
@@ -108,10 +115,12 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
       let added = 0;
       for (let round = 0; round < 10; round++) {
         const recs = store.unsyncedRecords(event, batchSize);
+        const pits = store.unsyncedPit(event, batchSize);
         const body = {
           token: cfg.token, event, eventName: store.getSetting(`eventName:${event}`) || '',
           records: recs.map(r => payloadFor(r, names)),
         };
+        if (pits.length) body.pit = pits.map(p => pitPayloadFor(p, names));
         if (sendMeta) {
           const sched = store.schedule(event);
           body.schedule = Object.keys(sched).map(key => ({ key, teams: sched[key] }));
@@ -123,10 +132,12 @@ export function createSync({ store, dashboardFile = null, tokenSource = null, fe
         const res = await post(cfg.url, body);
         const sent = new Set(recs.map(r => r.id));
         store.markSynced((res.accepted || []).filter(id => sent.has(id)), now());
+        const sentPit = new Set(pits.map(p => p.id));
+        store.markPitSynced((res.acceptedPit || []).filter(id => sentPit.has(id)), now());
         if (sendMeta) { store.setSetting(`syncedMeta:${event}`, metaSig); sendMeta = false; }
         if (sendIntel) { store.setSetting(`syncedIntel:${event}`, intelSig); sendIntel = false; }
-        added += res.added || 0;
-        if (recs.length < batchSize) break;
+        added += (res.added || 0) + (res.addedPit || 0);
+        if (recs.length < batchSize && pits.length < batchSize) break;
       }
       status.lastSuccess = now();
       status.lastError = null;

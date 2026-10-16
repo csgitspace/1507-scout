@@ -126,6 +126,7 @@
     table.cmp th:first-child, table.cmp td:first-child { text-align: left; color: var(--muted); font-weight: 600; }
     table.cmp th { color: var(--gold); font-size: 1rem; }
     table.cmp td.top { color: var(--gold); font-weight: 900; }
+    .pit-kv { font-size: .85rem; margin-top: 6px; overflow-wrap: anywhere; }
   </style>
 </head>
 <body data-me="<?= me ?>">
@@ -166,6 +167,7 @@
           <label>Fit<select id="f-fit"><option value="">All</option><option>High</option><option>Mid</option><option>Low</option></select></label>
           <label>Tag<select id="f-tag"><option value="">All</option><option>Target</option><option>Backup</option><option>Avoid</option><option value="none">Untagged</option></select></label>
           <label>Sort<select id="f-sort"><option value="">Pick order</option><option value="epa">EPA</option><option value="fuel">Scouted fuel</option><option value="tba">TBA rank</option></select></label>
+          <label>Trench<select id="f-trench"><option value="">All</option><option value="trench">Trench bot</option><option value="bump">Bump only</option></select></label>
           <label>Picked<select id="f-picked"><option value="">Show</option><option value="hide">Hide picked</option></select></label>
         </div>
       </div>
@@ -245,7 +247,7 @@
   }
 
   // ---------- list ----------
-  var FILTER_IDS = ['f-scoring', 'f-type', 'f-strength', 'f-fit', 'f-tag', 'f-sort', 'f-picked'];
+  var FILTER_IDS = ['f-scoring', 'f-type', 'f-strength', 'f-fit', 'f-tag', 'f-sort', 'f-trench', 'f-picked'];
   function has(x) { return x !== '' && x !== null && x !== undefined; }
   /** Sort descending by a number; teams without one go last. */
   function byNumber(key, asc) {
@@ -315,12 +317,13 @@
 
   function filtered() {
     var f = { scoring: $('f-scoring').value, type: $('f-type').value, strength: $('f-strength').value, fit: $('f-fit').value, tag: $('f-tag').value,
-      hidePicked: $('f-picked').value === 'hide' };
+      hidePicked: $('f-picked').value === 'hide', trench: $('f-trench').value };
     var list = ordered().filter(function (t) {
       var tag = tagOf(t);
       return (!f.scoring || t.scoring_level === f.scoring) && (!f.type || t.bot_type === f.type) &&
         (!f.strength || t.strength === f.strength) && (!f.fit || t.fit === f.fit) &&
-        (!f.tag || (f.tag === 'none' ? !tag : tag === f.tag)) && (!f.hidePicked || !t.picked);
+        (!f.tag || (f.tag === 'none' ? !tag : tag === f.tag)) && (!f.hidePicked || !t.picked) &&
+        (!f.trench || (f.trench === 'bump' ? t.trench === 'bump' : t.trench === 'seen' || t.trench === 'claimed'));
     });
     var sort = $('f-sort').value;
     if (sort === 'epa') list.sort(byNumber('epa'));
@@ -359,6 +362,38 @@
       h('b', null, String(t.avg_total)), ' fuel/match (auto ', h('b', null, String(t.avg_auto)), ') · ',
       h('b', null, pct(t.accuracy)), ' acc · climb ', h('b', null, climbBest), ' · ',
       String(t.matches), ' matches', problems.length ? ' · ⚠ ' + problems.join(', ') : '');
+  }
+
+  // ---------- trench / shooter / auto / pit (game-specific, 2026) ----------
+  /** "Trench ✓ (seen 3/5)" green, "Trench (pit says)" plain, "Bump only" red. */
+  function trenchBadge(t) {
+    if (!t.trench) return null;
+    return h('span', { class: 'badge ' + ({ seen: 'High', claimed: '', bump: 'Low' }[t.trench] || ''), title: 'Scouts\' sightings beat the pit\'s answer' }, t.trench_label);
+  }
+  function shooterBadge(t) { return t.shooter_label ? h('span', { class: 'badge' }, t.shooter_label) : null; }
+  /** "Best auto: Left of Hub — 7.5 fuel, climbs 50% (4 runs) · pit: starts Left of Hub, Right of Hub" */
+  function bestAutoText(t) {
+    var a = (t.auto_starts || [])[0];
+    return a ? a.pos + ' — ' + a.fuel + ' fuel' + (a.climb > 0 ? ', climbs ' + pct(a.climb) : '') + ' (' + a.n + ' run' + (a.n === 1 ? '' : 's') + ')' : '';
+  }
+  function autoLine(t) {
+    var best = bestAutoText(t), claimed = t.pit && t.pit.auto_starts;
+    if (!best && !claimed) return null;
+    return h('div', { class: 'stats' }, best ? ['Best auto: ', h('b', null, best)] : null,
+      claimed ? (best ? ' · ' : '') + 'pit: starts ' + claimed : null);
+  }
+  var PIT_ROWS = [['Drivetrain', 'drivetrain'], ['Fits under trench', 'fits_trench'], ['Over the bump', 'crosses_bump'],
+    ['Hopper (fuel)', 'hopper_capacity'], ['Shooter', 'shooter_type'], ['Shooters', 'shooter_count'], ['Shoots moving', 'shoots_moving'],
+    ['Auto starts', 'auto_starts'], ['Best auto (fuel)', 'auto_best_fuel'], ['Climbs in auto', 'auto_climb_claim'],
+    ['Their autos', 'auto_notes'], ['Highest climb', 'climb_claim'], ['Notes', 'pit_notes']];
+  /** Tap-to-open pit scouting answers (what the TEAM told us). */
+  function pitDetails(t) {
+    if (!t.pit) return null;
+    var rows = PIT_ROWS.filter(function (r) { return has(t.pit[r[1]]); });
+    return h('details', null, h('summary', null, 'Pit scouting' + (t.pit.by ? ' (by ' + t.pit.by + ')' : '')),
+      h('div', { class: 'kv pit-kv' }, rows.reduce(function (out, r) {   // h() flattens one level: pass a flat [k, v, k, v…]
+        return out.concat(h('span', { class: 'k' }, r[0]), h('span', null, String(t.pit[r[1]])));
+      }, [])));
   }
 
   function noteBox(label, value, meta, save) {
@@ -419,16 +454,19 @@
           t.picked ? h('span', { class: 'badge picked' }, 'PICKED') : null,
           t.scoring_level ? h('span', { class: 'badge ' + t.scoring_level }, 'Scoring ' + t.scoring_level) : null,
           t.bot_type ? h('span', { class: 'badge' }, t.bot_type) : null,
+          trenchBadge(t), shooterBadge(t),
           t.strength ? h('span', { class: 'badge ' + t.strength }, 'Strength ' + t.strength + ' (draft)') : null,
           t.fit ? h('span', { class: 'badge ' + t.fit }, 'Fit ' + t.fit + ': ' + t.fit_reason) : h('span', { class: 'badge' }, 'Fit: ' + t.fit_reason),
           mine() && (t.rank || t.tag) ? h('span', { class: 'badge' }, 'Official: ' + [t.rank ? '#' + t.rank : '', t.tag].filter(Boolean).join(' ')) : null),
         statsLine(t),
+        autoLine(t),
         extLine(t),
         h('div', { class: 'tags' }, tagBtns, pickedBtn),
         noteBox('Shared note', t.shared_note, sharedMeta, lead ? function (v) { return call('saveSharedNote', t.team, v); } : null),
         noteBox('My private note', t.private_note, '', function (v) { return call('savePrivateNote', t.team, v); }),
         t.notes && t.notes.length ? h('details', null, h('summary', null, 'Scout notes (' + t.notes.length + ')'),
-          t.notes.slice().reverse().map(function (n) { return h('div', { class: 'scout-note' }, n.match + ': ' + n.text); })) : null));
+          t.notes.slice().reverse().map(function (n) { return h('div', { class: 'scout-note' }, n.match + ': ' + n.text); })) : null,
+        pitDetails(t)));
     return el;
   }
 
@@ -587,8 +625,10 @@
         t.tag ? h('span', { class: 'badge', style: 'margin-left:6px' }, t.tag) : null),
       h('div', { class: 'badges' },
         t.bot_type ? h('span', { class: 'badge' }, t.bot_type) : null,
-        t.scoring_level ? h('span', { class: 'badge ' + t.scoring_level }, 'Scoring ' + t.scoring_level) : null),
+        t.scoring_level ? h('span', { class: 'badge ' + t.scoring_level }, 'Scoring ' + t.scoring_level) : null,
+        trenchBadge(t), shooterBadge(t)),
       statsLine(t),
+      autoLine(t),
       extLine(t),
       t.shared_note ? h('div', { class: 'scout-note', style: 'border-left-color:var(--gold)' }, 'Pick team: ' + t.shared_note) : null,
       (t.notes || []).slice().reverse().map(function (n) { return h('div', { class: 'scout-note' }, n.match + ': ' + n.text); }));
@@ -865,6 +905,13 @@
     ['Fuel / match', 'avg_total', 1], ['Auto fuel', 'avg_auto', 1], ['Teleop fuel', 'avg_teleop', 1], ['Accuracy', 'accuracy', 1, pct],
     ['Climbs (any level)', 'climb_l1', 1, pct], ['Level 3 climb', 'climb_l3', 1, pct], ['Reliability', 'reliability', 1, pct],
     ['Bot type', 'bot_type'], ['EPA', 'epa', 1], ['OPR', 'opr', 1], ['TBA rank', 'rank_tba', -1], ['Matches scouted', 'matches'],
+    // [label, key, best direction, format, getter]: rows from routes, best auto and pit scouting
+    ['Trench', null, 0, null, function (t) { return t.trench_label; }],
+    ['Shooter (pit)', null, 0, null, function (t) { return t.shooter_label; }],
+    ['Drivetrain (pit)', null, 0, null, function (t) { return t.pit && t.pit.drivetrain; }],
+    ['Best auto', null, 0, null, bestAutoText],
+    ['Hopper (pit)', null, 1, null, function (t) { return t.pit && t.pit.hopper_capacity; }],
+    ['Climb (pit says)', null, 0, null, function (t) { return t.pit && t.pit.climb_claim; }],
   ];
   var CMP_COLORS = [C.gold, C.blue, C.good];
   function comparePanels(byNum) {
@@ -888,7 +935,10 @@
     var table = h('table', { class: 'cmp' }, h('tr', null, h('th', null, ''), teams.map(function (t, i) {
       return h('th', { style: 'color:' + CMP_COLORS[i] }, String(t.team));
     })), CMP_ROWS.map(function (row) {
-      var vals = teams.map(function (t) { return Number(t.matches) || row[1] === 'epa' || row[1] === 'opr' || row[1] === 'rank_tba' ? t[row[1]] : ''; });
+      var vals = teams.map(function (t) {
+        if (row[4]) return row[4](t);
+        return Number(t.matches) || row[1] === 'epa' || row[1] === 'opr' || row[1] === 'rank_tba' ? t[row[1]] : '';
+      });
       var nums = vals.map(num).filter(function (v) { return v !== null; });
       var best = row[2] && nums.length > 1 ? (row[2] > 0 ? Math.max : Math.min).apply(null, nums) : null;
       return h('tr', null, h('td', null, row[0]), vals.map(function (v) {
